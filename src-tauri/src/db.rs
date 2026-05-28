@@ -2,6 +2,11 @@ use rusqlite::Connection;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+// std::sync::Mutex is safe here because all Tauri commands are synchronous
+// (returning Result<T, String> without .await). Each command acquires the lock
+// and releases it before returning. If async commands are added in the future,
+// switch to tokio::sync::Mutex to avoid holding a std Mutex across await points.
+
 pub struct DbPool {
     pub conn: Mutex<Connection>,
 }

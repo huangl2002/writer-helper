@@ -66,9 +66,7 @@ export function GoalsPomodoro() {
           if (type === "work") {
             setPomodorosDone((p) => p + 1);
             setTimerState("idle");
-            // Play notification sound if available
           } else {
-            setPomodorosDone((p) => p + 1);
             setTimerState("idle");
           }
           return 0;

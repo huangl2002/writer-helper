@@ -11,7 +11,6 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_handle = app.handle().clone();
@@ -21,6 +20,27 @@ pub fn run() {
                 .expect("failed to get app data dir")
                 .join("writer.db");
             std::fs::create_dir_all(db_path.parent().unwrap())?;
+
+            // Initialize encryption key
+            let key_path = db_path.parent().unwrap().join(".encryption_key");
+            let key = if key_path.exists() {
+                let data = std::fs::read(&key_path)
+                    .unwrap_or_else(|_| crypto::generate_key().to_vec());
+                let mut arr = [0u8; 32];
+                let len = data.len().min(32);
+                arr[..len].copy_from_slice(&data[..len]);
+                if len < 32 {
+                    arr = crypto::generate_key();
+                    std::fs::write(&key_path, &arr).ok();
+                }
+                arr
+            } else {
+                let key = crypto::generate_key();
+                std::fs::write(&key_path, &key).ok();
+                key
+            };
+            crypto::init_key(key);
+
             let pool = db::init_db(&db_path)?;
             app_handle.manage(pool);
             Ok(())

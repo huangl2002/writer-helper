@@ -280,39 +280,62 @@ pub fn export_outlines_md(
     let conn = pool.conn.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT title, content, node_type, parent_id, is_complete FROM outlines WHERE work_id = ?1 ORDER BY sort_order",
+            "SELECT id, title, content, node_type, parent_id, is_complete FROM outlines WHERE work_id = ?1 ORDER BY sort_order",
         )
         .map_err(|e| e.to_string())?;
 
-    let outlines: Vec<(String, String, String, Option<String>, bool)> = stmt
+    let outlines: Vec<(String, String, String, String, Option<String>, bool)> = stmt
         .query_map(rusqlite::params![work_id], |row| {
             Ok((
                 row.get::<_, String>(0)?,
                 row.get::<_, String>(1)?,
                 row.get::<_, String>(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get::<_, i32>(4)? != 0,
+                row.get::<_, String>(3)?,
+                row.get::<_, Option<String>>(4)?,
+                row.get::<_, i32>(5)? != 0,
             ))
         })
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    let mut output = String::from("# 大纲\n\n");
-    for (title, content, node_type, _parent_id, is_complete) in &outlines {
-        let check = if *is_complete { "x" } else { " " };
-        let type_label = match node_type.as_str() {
-            "volume" => "卷",
-            "chapter" => "章",
-            "plot" => "情节",
-            "scene" => "场景",
-            _ => node_type.as_str(),
-        };
-        output.push_str(&format!("- [{}] [{}] {}", check, type_label, title));
-        if !content.is_empty() {
-            output.push_str(&format!(" — {}", content));
+    // Build children map and root list
+    let mut children: std::collections::HashMap<Option<String>, Vec<&(String, String, String, String, Option<String>, bool)>> = std::collections::HashMap::new();
+    for item in &outlines {
+        children.entry(item.4.clone()).or_default().push(item);
+    }
+
+    fn render_tree(
+        items: &[&(String, String, String, String, Option<String>, bool)],
+        children: &std::collections::HashMap<Option<String>, Vec<&(String, String, String, String, Option<String>, bool)>>,
+        depth: usize,
+        output: &mut String,
+    ) {
+        let indent = "  ".repeat(depth);
+        for (id, title, content, node_type, _parent_id, is_complete) in items {
+            let check = if *is_complete { "x" } else { " " };
+            let type_label = match node_type.as_str() {
+                "volume" => "卷",
+                "chapter" => "章",
+                "plot" => "情节",
+                "scene" => "场景",
+                _ => node_type.as_str(),
+            };
+            output.push_str(&format!("{}- [{}] [{}] {}", indent, check, type_label, title));
+            if !content.is_empty() {
+                output.push_str(&format!(" — {}", content));
+            }
+            output.push('\n');
+            // Render child nodes
+            if let Some(kids) = children.get(&Some(id.clone())) {
+                render_tree(kids, children, depth + 1, output);
+            }
         }
-        output.push('\n');
+    }
+
+    let mut output = String::from("# 大纲\n\n");
+    if let Some(roots) = children.get(&None) {
+        render_tree(roots, &children, 0, &mut output);
     }
 
     fs::write(&path, &output).map_err(|e| e.to_string())?;

@@ -17,7 +17,7 @@ export function HelperPanel() {
   const totalChapters = chapters.length;
   const totalWords = chapters.reduce((sum, c) => sum + c.word_count, 0);
   const draftCount = chapters.filter((c) => c.status === "draft").length;
-  const doneCount = chapters.filter((c) => c.status === "done").length;
+  const doneCount = chapters.filter((c) => c.status === "completed").length;
 
   const recentChapters = [...chapters]
     .sort((a, b) => b.updated_at.localeCompare(a.updated_at))

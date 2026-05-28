@@ -38,7 +38,6 @@ pub fn create_snapshot(
     )
     .map_err(|e| e.to_string())?;
 
-    // Limit to 50 snapshots per chapter
     conn.execute(
         "DELETE FROM chapter_snapshots WHERE chapter_id = ?1 AND id NOT IN (SELECT id FROM chapter_snapshots WHERE chapter_id = ?1 ORDER BY saved_at DESC LIMIT 50)",
         rusqlite::params![chapter_id],

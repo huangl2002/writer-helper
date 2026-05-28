@@ -122,9 +122,11 @@ pub fn search_notes(
     query: String,
 ) -> Result<Vec<Note>, String> {
     let conn = pool.conn.lock().map_err(|e| e.to_string())?;
-    let pattern = format!("%{}%", query);
+    // Escape LIKE wildcards to prevent unintended pattern matching
+    let escaped = query.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+    let pattern = format!("%{}%", escaped);
     let mut stmt = conn
-        .prepare("SELECT id, work_id, title, content, tags, color, is_pinned, created_at, updated_at FROM notes WHERE title LIKE ?1 OR content LIKE ?1 ORDER BY updated_at DESC")
+        .prepare("SELECT id, work_id, title, content, tags, color, is_pinned, created_at, updated_at FROM notes WHERE title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\' ORDER BY updated_at DESC")
         .map_err(|e| e.to_string())?;
 
     let notes = stmt

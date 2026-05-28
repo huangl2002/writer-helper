@@ -150,13 +150,13 @@ export function WorkTree() {
 
   // ── Helpers ──
   const statusLabel = (s: string) =>
-    s === "draft" ? "草稿" : s === "writing" ? "写作中" : s === "done" ? "已完成" : s;
+    s === "draft" ? "草稿" : s === "writing" ? "写作中" : s === "completed" ? "已完成" : s;
   const statusColor = (s: string) =>
     s === "draft"
       ? "text-text-secondary"
       : s === "writing"
         ? "text-blue-500"
-        : s === "done"
+        : s === "completed"
           ? "text-green-500"
           : "";
 
@@ -186,7 +186,7 @@ export function WorkTree() {
     { separator: true },
     { label: "状态: 草稿", onClick: () => handleStatusChange(ch, "draft") },
     { label: "状态: 写作中", onClick: () => handleStatusChange(ch, "writing") },
-    { label: "状态: 已完成", onClick: () => handleStatusChange(ch, "done") },
+    { label: "状态: 已完成", onClick: () => handleStatusChange(ch, "completed") },
     { separator: true },
     { label: "移至未分类", onClick: () => handleMoveChapter(ch, null) },
     ...volumes

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import type { ChapterSnapshot } from "../../types";
 import * as db from "../../lib/db";
@@ -13,6 +13,19 @@ export function SnapshotPanel() {
   const [snapshots, setSnapshots] = useState<ChapterSnapshot[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const msgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showMsg = useCallback((text: string) => {
+    setMsg(text);
+    if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
+    msgTimerRef.current = setTimeout(() => setMsg(""), 2000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (msgTimerRef.current) clearTimeout(msgTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeChapterId) {
@@ -29,15 +42,13 @@ export function SnapshotPanel() {
     setLoading(true);
     try {
       await db.createSnapshot(activeChapterId, "manual");
-      setMsg("快照已保存");
+      showMsg("快照已保存");
       const list = await db.listSnapshots(activeChapterId);
       setSnapshots(list);
     } catch (e) {
-      setMsg("保存失败");
+      showMsg("保存失败");
     } finally {
       setLoading(false);
-      const timer = setTimeout(() => setMsg(""), 2000);
-      return () => clearTimeout(timer);
     }
   };
 
@@ -48,7 +59,7 @@ export function SnapshotPanel() {
       // Save current state as snapshot first
       await db.createSnapshot(activeChapterId!, "auto");
       await db.restoreSnapshot(snap.id);
-      setMsg("已恢复，请重新打开章节");
+      showMsg("已恢复，请重新打开章节");
       // Reload chapter
       const ch = await db.getChapter(activeChapterId!);
       useAppStore.getState().setChapters(
@@ -57,7 +68,7 @@ export function SnapshotPanel() {
         ),
       );
     } catch (e) {
-      setMsg("恢复失败");
+      showMsg("恢复失败");
     } finally {
       setLoading(false);
     }
