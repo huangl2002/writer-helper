@@ -5,7 +5,7 @@ edition = "2021"
 
 [lib]
 name = "ai_writer_helper_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -19,3 +19,4 @@ serde_json = "1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = "0.4"
+tauri-plugin-dialog = "2.7.1"

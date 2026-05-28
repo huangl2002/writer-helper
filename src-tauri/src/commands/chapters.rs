@@ -125,7 +125,7 @@ pub fn list_chapters(
         let mut stmt = conn
             .prepare("SELECT id, volume_id, work_id, title, content_json, word_count, status, sort_order, source, version, created_at, updated_at FROM chapters WHERE work_id = ?1 AND volume_id = ?2 ORDER BY sort_order")
             .map_err(|e| e.to_string())?;
-        stmt.query_map(rusqlite::params![work_id, vid], |row| {
+        let rows = stmt.query_map(rusqlite::params![work_id, vid], |row| {
             Ok(Chapter {
                 id: row.get(0)?,
                 volume_id: row.get(1)?,
@@ -141,14 +141,14 @@ pub fn list_chapters(
                 updated_at: row.get(11)?,
             })
         })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?
     } else {
         let mut stmt = conn
             .prepare("SELECT id, volume_id, work_id, title, content_json, word_count, status, sort_order, source, version, created_at, updated_at FROM chapters WHERE work_id = ?1 ORDER BY sort_order")
             .map_err(|e| e.to_string())?;
-        stmt.query_map(rusqlite::params![work_id], |row| {
+        let rows = stmt.query_map(rusqlite::params![work_id], |row| {
             Ok(Chapter {
                 id: row.get(0)?,
                 volume_id: row.get(1)?,
@@ -164,12 +164,44 @@ pub fn list_chapters(
                 updated_at: row.get(11)?,
             })
         })
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?
     };
 
     Ok(chapters)
+}
+
+#[tauri::command]
+pub fn move_chapter(
+    pool: State<'_, DbPool>,
+    id: String,
+    volume_id: Option<String>,
+) -> Result<(), String> {
+    let conn = pool.conn.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE chapters SET volume_id = ?1, updated_at = ?2 WHERE id = ?3",
+        rusqlite::params![volume_id, now, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_chapter_status(
+    pool: State<'_, DbPool>,
+    id: String,
+    status: String,
+) -> Result<(), String> {
+    let conn = pool.conn.lock().map_err(|e| e.to_string())?;
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "UPDATE chapters SET status = ?1, updated_at = ?2 WHERE id = ?3",
+        rusqlite::params![status, now, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]

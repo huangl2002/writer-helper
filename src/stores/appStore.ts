@@ -17,7 +17,7 @@ interface AppState {
   setWorks: (works: Work[]) => void;
   setVolumes: (volumes: Volume[]) => void;
   setChapters: (chapters: Chapter[]) => void;
-  setActiveWork: (id: string) => void;
+  setActiveWork: (id: string | null) => void;
   setActiveChapter: (id: string | null) => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
@@ -25,11 +25,19 @@ export function WritingEditor() {
   const [wordCount, setWordCount] = useState(0);
   const [lastSavedWordCount, setLastSavedWordCount] = useState(0);
 
+  // Refs to track current state for save without stale closures
+  const savingChapterRef = useRef<string | null>(null);
+  const saveDataRef = useRef<{
+    chapterId: string;
+    title: string;
+    wordCount: number;
+    lastSavedWordCount: number;
+    workId: string | null;
+  } | null>(null);
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({
-        document: false,
-      }),
+      StarterKit,
       Placeholder.configure({ placeholder: "开始写作..." }),
     ],
     content: { type: "doc", content: [{ type: "paragraph" }] },
@@ -39,33 +47,49 @@ export function WritingEditor() {
     },
   });
 
-  // Save function
-  const save = useCallback(async () => {
-    if (!activeChapterId || !editor) return;
+  // Update save ref whenever relevant state changes
+  useEffect(() => {
+    if (activeChapterId) {
+      saveDataRef.current = {
+        chapterId: activeChapterId,
+        title: chapterTitle,
+        wordCount,
+        lastSavedWordCount,
+        workId: activeWorkId,
+      };
+    }
+  }, [activeChapterId, chapterTitle, wordCount, lastSavedWordCount, activeWorkId]);
+
+  // Save function - uses ref to avoid stale closures
+  const saveCurrentChapter = useCallback(async () => {
+    const data = saveDataRef.current;
+    if (!data || !editor) return;
+
+    const currentId = data.chapterId;
+    // Prevent concurrent saves for the same chapter
+    if (savingChapterRef.current === currentId) return;
+    savingChapterRef.current = currentId;
+
     setIsSaving(true);
     const json = JSON.stringify(editor.getJSON());
-    const delta = wordCount - lastSavedWordCount;
+    const delta = data.wordCount - data.lastSavedWordCount;
     try {
-      await db.updateChapter(activeChapterId, chapterTitle, json, wordCount);
-      if (delta !== 0 && activeWorkId) {
-        await db.recordWritingSession(activeWorkId, activeChapterId, delta);
+      await db.updateChapter(currentId, data.title, json, data.wordCount);
+      // Check for auto-snapshot
+      db.autoSnapshotIfNeeded(currentId).catch(() => {});
+      if (delta !== 0 && data.workId) {
+        await db.recordWritingSession(data.workId, currentId, delta);
         const stats = await db.getTodayWordCount();
         setTodayStats(stats);
       }
-      setLastSavedWordCount(wordCount);
+      setLastSavedWordCount(data.wordCount);
     } catch (e) {
       console.error("Save failed:", e);
     } finally {
       setIsSaving(false);
+      savingChapterRef.current = null;
     }
-  }, [
-    activeChapterId,
-    chapterTitle,
-    wordCount,
-    lastSavedWordCount,
-    activeWorkId,
-    editor,
-  ]);
+  }, [editor, setTodayStats]);
 
   // Load chapter content when active chapter changes
   useEffect(() => {
@@ -77,9 +101,13 @@ export function WritingEditor() {
       setChapterTitle("");
       setWordCount(0);
       setLastSavedWordCount(0);
+      saveDataRef.current = null;
       return;
     }
-    save().then(() => {
+
+    // Save the previous chapter before loading new one
+    const prevChapterId = saveDataRef.current?.chapterId;
+    const doLoad = () => {
       db.getChapter(activeChapterId).then((ch) => {
         setChapterTitle(ch.title);
         try {
@@ -93,7 +121,14 @@ export function WritingEditor() {
         setWordCount(ch.word_count);
         setLastSavedWordCount(ch.word_count);
       });
-    });
+    };
+
+    if (prevChapterId && prevChapterId !== activeChapterId) {
+      // Save previous chapter first, then load new one
+      saveCurrentChapter().finally(doLoad);
+    } else {
+      doLoad();
+    }
   }, [activeChapterId]);
 
   // Load today stats on mount
@@ -103,21 +138,21 @@ export function WritingEditor() {
 
   // Auto-save interval
   useEffect(() => {
-    const timer = setInterval(save, SAVE_INTERVAL);
+    const timer = setInterval(saveCurrentChapter, SAVE_INTERVAL);
     return () => clearInterval(timer);
-  }, [save]);
+  }, [saveCurrentChapter]);
 
   // Save on Ctrl+S
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
-        save();
+        saveCurrentChapter();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [save]);
+  }, [saveCurrentChapter]);
 
   if (!activeChapterId) {
     return (

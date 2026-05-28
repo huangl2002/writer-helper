@@ -406,21 +406,109 @@ CREATE TABLE settings (
 
 ### 6.1.1 包含功能
 
-- [x] 写作编辑器（Tiptap + 专注模式 + 分屏）
-- [x] 章节管理（卷结构 + 拖拽排序 + 搜索）
-- [x] 角色系统（卡片 + 关系 + 自定义字段）
-- [x] 大纲系统（树形编辑 + 自动梳理）
-- [x] 灵感笔记（便签墙 + 标签 + 搜索）
-- [x] 码字统计（看板 + 热力图 + 趋势图）
-- [x] 写作目标 + 番茄钟
-- [x] 主题/风格定制（浅色/暗色/护眼 + 字体/字号/行距）
-- [x] 布局定制（预设布局 + 自由拖拽 + 保存切换）
-- [x] 历史版本（自动/手动快照 + 差异对比 + 恢复）
-- [x] 数据导出（单章/全书/大纲/角色/全库备份）
-- [x] 导入模块（TXT/Markdown/DOCX/文件夹/OPML + 自动梳理）
-- [x] AI 写作 Agent（自配 API + 多模型 + 续写/润色/大纲建议等）
+| 模块 | 详情 | 状态 |
+|------|------|------|
+| 写作编辑器 | Tiptap 富文本编辑器，加粗/斜体/H1-H3/分隔线，30秒自动保存，专注模式 | ✅ |
+| 章节管理 | 作品→卷→章节树形结构，拖拽排序（dnd-kit），右键菜单（重命名/状态变更/移动/删除），搜索过滤 | ✅ |
+| 角色系统 | 角色卡片（姓名/性别/别名/外貌/性格/背景），角色关系管理，自定义属性 | ✅ |
+| 大纲系统 | 无限层级大纲树，节点类型（卷/章/情节/场景），完成标记，关联章节 | ✅ |
+| 灵感笔记 | 便签墙/列表双视图，颜色标记，标签分类，置顶，全文搜索 | ✅ |
+| 码字统计 | 今日/近7天/本月/总计看板，热力图，趋势柱状图 | ✅ |
+| 写作目标+番茄钟 | 每日字数目标+进度条，25分钟专注+5分钟休息番茄钟计时器 | ✅ |
+| 主题定制 | 浅色/暗色/护眼（米黄）三套主题，CSS 变量驱动，一键切换 | ✅ |
+| 布局定制 | 三面板可拖拽调整大小（react-resizable-panels），专注模式 | ✅ |
+| 历史版本 | 每25次自动保存生成快照，手动快照，恢复历史版本，每章最多50个 | ✅ |
+| 数据导出 | 单章/全书 TXT/Markdown，大纲 Markdown，角色 JSON，Tiptap→MD 转换 | ✅ |
+| 数据导入 | TXT（按章节标记自动拆分），Markdown（按标题层级拆分），文件夹批量导入 | ✅ |
+| AI 写作 Agent | 多模型配置（OpenAI/DeepSeek/通义千问/Kimi/Ollama），续写/润色/扩写/缩写/自由对话，API Key XOR 加密 | ✅ |
+| 首页导航 | 仪表盘式首页，今日码字/当前作品/累计字数快览，功能卡片入口，←返回按钮 | ✅ |
 
-### 6.1.2 V1 数据流
+### 6.1.2 实际项目结构
+
+```
+ai-writer-helper/
+├── src-tauri/                    # Tauri Rust 后端
+│   ├── src/
+│   │   ├── main.rs               # 入口
+│   │   ├── lib.rs                # 插件注册 + 命令注册
+│   │   ├── db.rs                 # SQLite 连接池 + 迁移执行
+│   │   ├── crypto.rs             # API Key XOR 加密
+│   │   ├── stats.rs              # 写作统计命令
+│   │   ├── export.rs             # 数据导出命令（Tiptap→TXT/MD）
+│   │   ├── import.rs             # 数据导入命令（TXT/MD 解析）
+│   │   └── commands/
+│   │       ├── mod.rs
+│   │       ├── works.rs          # 作品 CRUD
+│   │       ├── volumes.rs        # 卷 CRUD
+│   │       ├── chapters.rs       # 章节 CRUD + 移动 + 状态变更
+│   │       ├── characters.rs     # 角色 CRUD + 关系管理
+│   │       ├── outlines.rs       # 大纲 CRUD + 移动 + 排序
+│   │       ├── notes.rs          # 笔记 CRUD + 搜索
+│   │       ├── goals.rs          # 目标 CRUD
+│   │       ├── snapshots.rs      # 历史快照 + 自动快照
+│   │       └── ai.rs             # AI 配置 CRUD
+│   ├── migrations/
+│   │   ├── 001_init.sql          # works, volumes, chapters, writing_sessions, settings
+│   │   ├── 002_characters.sql    # characters, character_relations
+│   │   ├── 003_outlines.sql      # outlines
+│   │   ├── 004_notes.sql         # notes
+│   │   ├── 005_goals.sql         # goals
+│   │   ├── 006_snapshots.sql     # chapter_snapshots
+│   │   └── 007_ai_config.sql     # ai_configs
+│   ├── Cargo.toml
+│   ├── tauri.conf.json
+│   └── capabilities/default.json
+├── src/                          # React 前端
+│   ├── components/
+│   │   ├── layout/               # MainLayout, HomePage, Sidebar, HelperPanel
+│   │   ├── editor/               # WritingEditor, EditorToolbar, StatusBar
+│   │   ├── works/                # WorkTree（统一作品+卷+章节树）
+│   │   ├── chapters/             # ChapterActions
+│   │   ├── characters/           # CharacterList, CharacterCard, CharacterForm
+│   │   ├── outline/              # OutlineTree
+│   │   ├── notes/                # NotesList
+│   │   ├── stats/                # StatsPanel（热力图+柱状图）
+│   │   ├── goals/                # GoalsPomodoro（目标+番茄钟）
+│   │   ├── import/               # ImportExport
+│   │   ├── snapshots/            # SnapshotPanel
+│   │   ├── ai/                   # AiChat, AiSettings
+│   │   ├── theme/                # ThemeToggle
+│   │   └── common/               # ContextMenu
+│   ├── stores/appStore.ts        # Zustand 全局状态
+│   ├── types/index.ts            # TypeScript 类型定义
+│   ├── lib/
+│   │   ├── db.ts                 # Tauri invoke 包装层
+│   │   └── utils.ts              # 字数统计/时间格式化/纯文本提取
+│   ├── styles/themes.css         # 三套主题 CSS 变量
+│   ├── App.tsx
+│   └── main.tsx
+├── release/                      # 发布文件
+│   ├── ai-writer-helper.exe
+│   └── WebView2Loader.dll
+├── package.json
+├── pnpm-lock.yaml
+└── vite.config.ts
+```
+
+### 6.1.3 技术栈与依赖
+
+**Rust 端**：
+- `tauri` 2.x — 桌面框架
+- `rusqlite` 0.31 (bundled) — SQLite
+- `serde` / `serde_json` — 序列化
+- `uuid` / `chrono` — ID 生成 / 时间处理
+- `tauri-plugin-shell` / `tauri-plugin-sql` / `tauri-plugin-dialog` — Tauri 插件
+
+**前端**：
+- `react` 18 + `react-dom` — UI 框架
+- `@tiptap/react` + `@tiptap/starter-kit` — 富文本编辑器
+- `zustand` — 状态管理
+- `tailwindcss` — 样式
+- `@dnd-kit/core` + `@dnd-kit/sortable` — 拖拽排序
+- `react-resizable-panels` — 可拖拽面板
+- `@tauri-apps/api` / `@tauri-apps/plugin-dialog` — Tauri 前端 API
+
+### 6.1.4 V1 数据流
 
 ```
 ┌──────────┐      Tauri Command       ┌──────────────┐
