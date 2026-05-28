@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { HomePage, type Page } from "./HomePage";
 import { Sidebar } from "./Sidebar";
@@ -13,7 +13,6 @@ import { ImportExport } from "../import/ImportExport";
 import { SnapshotPanel } from "../snapshots/SnapshotPanel";
 import { AiChat } from "../ai/AiChat";
 import { AiSettings } from "../ai/AiSettings";
-import { Panel, type PanelImperativeHandle, Group, Separator } from "react-resizable-panels";
 
 const PAGE_TITLES: Record<Page, string> = {
   home: "首页",
@@ -29,29 +28,14 @@ const PAGE_TITLES: Record<Page, string> = {
   ai_settings: "AI 配置",
 };
 
+const SIDEBAR_WIDTH = 260;
+const HELPER_WIDTH = 280;
+
 export function MainLayout() {
   const [page, setPage] = useState<Page>("home");
   const layoutMode = useAppStore((s) => s.layoutMode);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const helperPanelOpen = useAppStore((s) => s.helperPanelOpen);
-  const sidebarRef = useRef<PanelImperativeHandle>(null);
-  const helperRef = useRef<PanelImperativeHandle>(null);
-  const mountedRef = useRef(false);
-
-  // Sync store state → panel size (skip initial mount to respect defaultSize)
-  useEffect(() => {
-    if (!mountedRef.current) return;
-    sidebarRef.current?.resize(sidebarOpen ? 18 : 0);
-  }, [sidebarOpen]);
-
-  useEffect(() => {
-    if (!mountedRef.current) return;
-    helperRef.current?.resize(helperPanelOpen ? 22 : 0);
-  }, [helperPanelOpen]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-  }, []);
 
   if (page === "home") {
     return <HomePage onNavigate={setPage} />;
@@ -71,37 +55,38 @@ export function MainLayout() {
     return (
       <div className="flex flex-col h-full w-full">
         <PageHeader title="码字台" onBack={() => setPage("home")} />
-        <Group orientation="horizontal" className="flex-1 min-h-0">
-          <Panel
-            id="sidebar"
-            panelRef={sidebarRef}
-            defaultSize={sidebarOpen ? 18 : 0}
-            minSize={0}
-            maxSize={35}
+        <div className="flex-1 flex min-h-0">
+          {/* Sidebar */}
+          <div
+            className="h-full shrink-0 overflow-hidden bg-surface-alt transition-[width] duration-200"
+            style={{ width: sidebarOpen ? SIDEBAR_WIDTH : 0, borderRight: sidebarOpen ? "1px solid var(--color-border)" : "none" }}
           >
-            <aside className="h-full border-r border-border bg-surface-alt overflow-hidden">
+            <div style={{ width: SIDEBAR_WIDTH }} className="h-full">
               <Sidebar />
-            </aside>
-          </Panel>
-          <Separator id="sep-left" className="w-[3px] bg-border hover:bg-accent transition-colors cursor-col-resize" />
-          <Panel id="editor" minSize={30}>
-            <main className="h-full overflow-hidden">
-              <WritingEditor />
-            </main>
-          </Panel>
-          <Separator id="sep-right" className="w-[3px] bg-border hover:bg-accent transition-colors cursor-col-resize" />
-          <Panel
-            id="helper"
-            panelRef={helperRef}
-            defaultSize={helperPanelOpen ? 22 : 0}
-            minSize={0}
-            maxSize={40}
+            </div>
+          </div>
+
+{/* Drag handle — sidebar */}
+          {sidebarOpen && <DragHandle />}
+
+          {/* Editor */}
+          <main className="flex-1 min-w-0 h-full overflow-hidden">
+            <WritingEditor />
+          </main>
+
+{/* Drag handle — helper */}
+          {helperPanelOpen && <DragHandle />}
+
+          {/* Helper panel */}
+          <div
+            className="h-full shrink-0 overflow-hidden bg-surface-alt transition-[width] duration-200"
+            style={{ width: helperPanelOpen ? HELPER_WIDTH : 0, borderLeft: helperPanelOpen ? "1px solid var(--color-border)" : "none" }}
           >
-            <aside className="h-full border-l border-border bg-surface-alt overflow-hidden">
+            <div style={{ width: HELPER_WIDTH }} className="h-full">
               <HelperPanel />
-            </aside>
-          </Panel>
-        </Group>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -129,6 +114,50 @@ export function MainLayout() {
 }
 
 /* ─── Page header with back button ─── */
+
+function DragHandle() {
+  const handleRef = useRef<HTMLDivElement>(null);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    const handle = handleRef.current;
+    if (!handle) return;
+    const prev = handle.previousElementSibling as HTMLElement;
+    const next = handle.nextElementSibling as HTMLElement;
+    if (!prev || !next) return;
+    const startX = e.clientX;
+    const prevStartW = prev.offsetWidth;
+    const nextStartW = next.offsetWidth;
+    const totalW = prevStartW + nextStartW;
+
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - startX;
+      const newPrevW = Math.max(60, prevStartW + dx);
+      const newNextW = totalW - newPrevW;
+      if (newNextW < 60) return;
+      prev.style.width = `${newPrevW}px`;
+      next.style.width = `${newNextW}px`;
+      prev.style.transition = "none";
+      next.style.transition = "none";
+    };
+    const onUp = () => {
+      prev.style.transition = "";
+      next.style.transition = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, []);
+
+  return (
+    <div
+      ref={handleRef}
+      onMouseDown={onMouseDown}
+      className="w-[5px] shrink-0 bg-border hover:bg-accent cursor-col-resize transition-colors"
+    />
+  );
+}
 
 function PageHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
