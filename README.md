@@ -30,6 +30,14 @@ Windows 桌面应用，下载 exe 文件本地安装运行。
 | 加密 | Rust crypto (AES-256-GCM) | API Key 安全存储 |
 | 样式 | TailwindCSS + 自定义主题变量 | 支持多主题切换 |
 
+### 1.5 下载安装
+
+前往 [Releases](../../releases) 页面，下载最新版的 `AI Writer Helper_v*_x64-setup.exe`，双击运行即可安装。
+
+> **系统要求：** Windows 10/11 64位
+>
+> 安装后应用会自动创建桌面快捷方式。所有写作数据存储在本地 `%APPDATA%/com.aiwriter.helper/` 目录下，无需联网即可使用。
+
 ---
 
 ## 2. 系统架构
