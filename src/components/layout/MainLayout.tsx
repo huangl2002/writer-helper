@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { HomePage, type Page } from "./HomePage";
 import { Sidebar } from "./Sidebar";
@@ -13,7 +13,7 @@ import { ImportExport } from "../import/ImportExport";
 import { SnapshotPanel } from "../snapshots/SnapshotPanel";
 import { AiChat } from "../ai/AiChat";
 import { AiSettings } from "../ai/AiSettings";
-import { Panel, Group, Separator } from "react-resizable-panels";
+import { Panel, type PanelImperativeHandle, Group, Separator } from "react-resizable-panels";
 
 const PAGE_TITLES: Record<Page, string> = {
   home: "首页",
@@ -34,6 +34,25 @@ export function MainLayout() {
   const layoutMode = useAppStore((s) => s.layoutMode);
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const helperPanelOpen = useAppStore((s) => s.helperPanelOpen);
+  const sidebarRef = useRef<PanelImperativeHandle>(null);
+  const helperRef = useRef<PanelImperativeHandle>(null);
+
+  // Sync store state → panel collapse
+  useEffect(() => {
+    if (sidebarOpen) {
+      sidebarRef.current?.expand();
+    } else {
+      sidebarRef.current?.collapse();
+    }
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (helperPanelOpen) {
+      helperRef.current?.expand();
+    } else {
+      helperRef.current?.collapse();
+    }
+  }, [helperPanelOpen]);
 
   if (page === "home") {
     return <HomePage onNavigate={setPage} />;
@@ -54,31 +73,39 @@ export function MainLayout() {
       <div className="flex flex-col h-full w-full">
         <PageHeader title="码字台" onBack={() => setPage("home")} />
         <Group orientation="horizontal" className="flex-1 min-h-0">
-          {sidebarOpen && (
-            <>
-              <Panel defaultSize={20} minSize={15} maxSize={35}>
-                <aside className="h-full border-r border-border bg-surface-alt overflow-hidden">
-                  <Sidebar />
-                </aside>
-              </Panel>
-              <Separator className="w-1 bg-border hover:bg-accent transition-colors cursor-col-resize" />
-            </>
-          )}
-          <Panel minSize={30}>
+          <Panel
+            id="sidebar"
+            panelRef={sidebarRef}
+            defaultSize={18}
+            minSize={12}
+            maxSize={35}
+            collapsible
+            collapsedSize={0}
+          >
+            <aside className="h-full border-r border-border bg-surface-alt overflow-hidden">
+              <Sidebar />
+            </aside>
+          </Panel>
+          <Separator id="sep-left" className="w-[3px] bg-border hover:bg-accent transition-colors cursor-col-resize" />
+          <Panel id="editor" minSize={30}>
             <main className="h-full overflow-hidden">
               <WritingEditor />
             </main>
           </Panel>
-          {helperPanelOpen && (
-            <>
-              <Separator className="w-1 bg-border hover:bg-accent transition-colors cursor-col-resize" />
-              <Panel defaultSize={25} minSize={15} maxSize={40}>
-                <aside className="h-full border-l border-border bg-surface-alt overflow-hidden">
-                  <HelperPanel />
-                </aside>
-              </Panel>
-            </>
-          )}
+          <Separator id="sep-right" className="w-[3px] bg-border hover:bg-accent transition-colors cursor-col-resize" />
+          <Panel
+            id="helper"
+            panelRef={helperRef}
+            defaultSize={22}
+            minSize={12}
+            maxSize={40}
+            collapsible
+            collapsedSize={0}
+          >
+            <aside className="h-full border-l border-border bg-surface-alt overflow-hidden">
+              <HelperPanel />
+            </aside>
+          </Panel>
         </Group>
       </div>
     );
