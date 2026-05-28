@@ -11,6 +11,7 @@ export function ImportExport() {
   const [exporting, setExporting] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
+  const [importVolume, setImportVolume] = useState<string | null>(null);
 
   const pickAndExport = async (
     label: string,
@@ -175,11 +176,8 @@ export function ImportExport() {
               <div>
                 <label className="text-xs text-text-secondary">导入到</label>
                 <select
-                  onChange={(e) => {
-                    // Target volume stored in a ref or local
-                    const v = e.target.value;
-                    (window as any).__import_volume = v || null;
-                  }}
+                  value={importVolume ?? ""}
+                  onChange={(e) => setImportVolume(e.target.value || null)}
                   className="w-full text-xs px-2 py-1 bg-surface border border-border rounded text-text-primary"
                 >
                   <option value="">未分类（直接章节）</option>
@@ -205,7 +203,7 @@ export function ImportExport() {
                     if (filePath) {
                       const count = await db.importTxt(
                         activeWorkId,
-                        (window as any).__import_volume || null,
+                        importVolume,
                         filePath as string,
                       );
                       setImportMsg(`成功导入 ${count} 个章节`);
@@ -240,7 +238,7 @@ export function ImportExport() {
                     if (filePath) {
                       const count = await db.importMd(
                         activeWorkId,
-                        (window as any).__import_volume || null,
+                        importVolume,
                         filePath as string,
                       );
                       setImportMsg(`成功导入 ${count} 个章节`);
@@ -272,7 +270,7 @@ export function ImportExport() {
                     if (folderPath) {
                       const count = await db.importFolder(
                         activeWorkId,
-                        (window as any).__import_volume || null,
+                        importVolume,
                         folderPath as string,
                       );
                       setImportMsg(`成功导入 ${count} 个文件`);

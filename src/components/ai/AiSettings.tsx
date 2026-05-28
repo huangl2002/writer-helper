@@ -150,11 +150,11 @@ export function AiSettings() {
             </div>
             <div className="w-20">
               <label className="text-xs text-text-secondary">温度</label>
-              <input value={form.temperature} onChange={(e) => setForm({ ...form, temperature: +e.target.value })} className={inp} type="number" min="0" max="2" step="0.1" />
+              <input value={form.temperature} onChange={(e) => setForm({ ...form, temperature: parseFloat(e.target.value) || 0.7 })} className={inp} type="number" min="0" max="2" step="0.1" />
             </div>
             <div className="w-24">
               <label className="text-xs text-text-secondary">最大Token</label>
-              <input value={form.max_tokens} onChange={(e) => setForm({ ...form, max_tokens: +e.target.value })} className={inp} type="number" min="1" />
+              <input value={form.max_tokens} onChange={(e) => setForm({ ...form, max_tokens: parseInt(e.target.value) || 4096 })} className={inp} type="number" min="1" />
             </div>
           </div>
           <div className="flex gap-2">

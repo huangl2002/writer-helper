@@ -124,11 +124,13 @@ export function WritingEditor() {
     };
 
     if (prevChapterId && prevChapterId !== activeChapterId) {
-      // Save previous chapter first, then load new one
-      saveCurrentChapter().finally(doLoad);
+      saveCurrentChapter()
+        .catch((e) => console.error("Failed to save previous chapter:", e))
+        .finally(doLoad);
     } else {
       doLoad();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeChapterId]);
 
   // Load today stats on mount

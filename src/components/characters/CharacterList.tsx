@@ -34,9 +34,9 @@ export function CharacterList() {
     await refresh();
   };
 
-  const handleAddRelation = async (targetId: string, type: string) => {
-    if (!activeWorkId || !editingChar) return;
-    await db.createRelation(activeWorkId, editingChar.id, targetId, type, "");
+  const handleAddRelation = async (charId: string, targetId: string, type: string) => {
+    if (!activeWorkId) return;
+    await db.createRelation(activeWorkId, charId, targetId, type, "");
     await refresh();
   };
 
@@ -104,10 +104,7 @@ export function CharacterList() {
               setShowForm(true);
             }}
             onDelete={() => handleDelete(ch.id)}
-            onAddRelation={(targetId, type) => {
-              setEditingChar(ch);
-              handleAddRelation(targetId, type);
-            }}
+            onAddRelation={(charId, targetId, type) => handleAddRelation(charId, targetId, type)}
             onDeleteRelation={handleDeleteRelation}
           />
         ))

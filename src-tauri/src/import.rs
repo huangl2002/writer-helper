@@ -51,21 +51,17 @@ fn is_chapter_marker(line: &str) -> bool {
 /// Parse TXT content and split by chapter markers
 fn split_txt_chapters(content: &str) -> Vec<(String, String)> {
     let mut markers: Vec<(usize, &str)> = Vec::new();
-    for (i, line) in content.lines().enumerate() {
+    let mut search_from = 0usize;
+    // Use content lines and find actual byte positions
+    let lines: Vec<&str> = content.lines().collect();
+    for line in &lines {
         if is_chapter_marker(line) {
-            // Find the byte offset of this line
-            let offset = content
-                .lines()
-                .take(i)
-                .map(|l| l.len() + 1) // +1 for newline
-                .sum::<usize>();
-            // On Windows, lines might have \r\n
-            let actual_offset = if content[offset..].starts_with('\n') {
-                offset
-            } else {
-                offset.min(content.len())
-            };
-            markers.push((actual_offset.min(content.len()), line.trim()));
+            // Find the actual byte offset of this line within content
+            if let Some(pos) = content[search_from..].find(line) {
+                let offset = search_from + pos;
+                markers.push((offset, line.trim()));
+                search_from = offset + line.len();
+            }
         }
     }
 
@@ -151,22 +147,19 @@ pub fn import_txt(
 fn split_md_by_headings(content: &str, level: usize) -> Vec<(usize, String)> {
     let prefix = "#".repeat(level) + " ";
     let mut results = Vec::new();
-    let mut byte_pos = 0usize;
+    let mut search_from = 0usize;
 
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with(&prefix) {
             let title = trimmed[prefix.len()..].trim().to_string();
             if !title.is_empty() {
-                // Find actual byte position of this heading
-                let actual_pos = content[byte_pos..]
-                    .find(trimmed)
-                    .map(|p| byte_pos + p)
-                    .unwrap_or(byte_pos);
-                results.push((actual_pos, title));
+                if let Some(pos) = content[search_from..].find(trimmed) {
+                    results.push((search_from + pos, title));
+                    search_from = search_from + pos + trimmed.len();
+                }
             }
         }
-        byte_pos += line.len() + 1; // +1 for newline (approximate for \n, might be off for \r\n)
     }
     results
 }

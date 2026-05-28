@@ -12,7 +12,7 @@ export function HelperPanel() {
 
   useEffect(() => {
     db.getTodayWordCount().then(setTodayStats).catch(console.error);
-  }, [activeChapterId]);
+  }, []);
 
   const totalChapters = chapters.length;
   const totalWords = chapters.reduce((sum, c) => sum + c.word_count, 0);

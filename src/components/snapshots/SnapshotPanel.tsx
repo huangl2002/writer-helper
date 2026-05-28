@@ -36,7 +36,8 @@ export function SnapshotPanel() {
       setMsg("保存失败");
     } finally {
       setLoading(false);
-      setTimeout(() => setMsg(""), 2000);
+      const timer = setTimeout(() => setMsg(""), 2000);
+      return () => clearTimeout(timer);
     }
   };
 

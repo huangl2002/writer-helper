@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { useAppStore } from "../../stores/appStore";
 import type { AiConfig } from "../../types";
 import * as db from "../../lib/db";
 
@@ -36,7 +35,9 @@ const ACTIONS: { key: string; label: string; systemPrompt: string }[] = [
   },
 ];
 
-export function AiChat() {
+import type { Page } from "../layout/HomePage";
+interface Props { onNavigate?: (page: Page) => void }
+export function AiChat({ onNavigate }: Props) {
   const [config, setConfig] = useState<AiConfig | null>(null);
   const [action, setAction] = useState("chat");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -48,7 +49,9 @@ export function AiChat() {
   useEffect(() => {
     db.getDefaultAiConfig().then((cfg) => {
       if (cfg) {
-        db.getAiConfigDecrypted(cfg.id).then(setConfig).catch(() => setConfig(cfg));
+        db.getAiConfigDecrypted(cfg.id).then(setConfig).catch(() => {
+          setError("无法解密 API Key，请重新配置");
+        });
       }
     }).catch(console.error);
   }, []);
@@ -129,7 +132,7 @@ export function AiChat() {
         <p className="mb-2">未配置 AI 服务</p>
         <p className="text-xs mb-4">需要 OpenAI 兼容接口（支持 DeepSeek、通义千问等）</p>
         <button
-          onClick={() => useAppStore.getState().setActiveWork(null as any)}
+          onClick={() => onNavigate?.("ai_settings")}
           className="text-sm px-3 py-1 bg-accent text-white rounded hover:opacity-90"
         >
           前往配置

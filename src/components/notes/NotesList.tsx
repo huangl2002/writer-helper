@@ -22,13 +22,13 @@ export function NotesList() {
 
   useEffect(() => {
     if (!activeWorkId) return;
-    db.listNotes(activeWorkId).then(setNotes).catch(console.error);
-  }, [activeWorkId]);
+    doRefresh(searchQuery);
+  }, [activeWorkId, searchQuery]);
 
-  const refresh = async () => {
+  const doRefresh = async (query: string) => {
     if (!activeWorkId) return;
-    if (searchQuery.trim()) {
-      const results = await db.searchNotes(searchQuery.trim());
+    if (query.trim()) {
+      const results = await db.searchNotes(query.trim());
       setNotes(results);
     } else {
       setNotes(await db.listNotes(activeWorkId));
@@ -39,12 +39,12 @@ export function NotesList() {
     const title = prompt("便签标题：");
     if (!title?.trim()) return;
     await db.createNote(activeWorkId, title.trim());
-    await refresh();
+    await doRefresh(searchQuery);
   };
 
   const handleDelete = async (id: string) => {
     await db.deleteNote(id);
-    await refresh();
+    await doRefresh(searchQuery);
   };
 
   const handleTogglePin = async (note: Note) => {
@@ -56,7 +56,7 @@ export function NotesList() {
       note.color,
       !note.is_pinned,
     );
-    await refresh();
+    await doRefresh(searchQuery);
   };
 
   const startEdit = (note: Note) => {
@@ -88,7 +88,7 @@ export function NotesList() {
       editNote.is_pinned ?? false,
     );
     setEditingId(null);
-    await refresh();
+    await doRefresh(searchQuery);
   };
 
   const tagsOf = (note: Note): string[] => {
@@ -115,11 +115,7 @@ export function NotesList() {
       <div className="flex items-center gap-2 px-2 py-1 border-b border-border">
         <input
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            if (!e.target.value.trim()) refresh();
-          }}
-          onKeyDown={(e) => { if (e.key === "Enter") refresh(); }}
+          onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="搜索笔记..."
           className="flex-1 text-xs px-2 py-1 bg-surface border border-border rounded text-text-primary focus:border-accent focus:outline-none"
         />

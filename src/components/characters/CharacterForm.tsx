@@ -43,10 +43,7 @@ export function CharacterForm({ character, workId, onSave, onCancel }: Props) {
           customAttrs,
         );
       } else {
-        await db.createCharacter(workId, name.trim());
-        // Then update with full details
-        const chars = await db.listCharacters(workId);
-        const created = chars[chars.length - 1];
+        const created = await db.createCharacter(workId, name.trim());
         await db.updateCharacter(
           created.id,
           name.trim(),

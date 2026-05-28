@@ -7,7 +7,7 @@ interface Props {
   characters: Character[];
   onEdit: () => void;
   onDelete: () => void;
-  onAddRelation: (targetId: string, type: string) => void;
+  onAddRelation: (charId: string, targetId: string, type: string) => void;
   onDeleteRelation: (relId: string) => void;
 }
 
@@ -143,7 +143,7 @@ export function CharacterCard({
             <button
               disabled={!relTarget}
               onClick={() => {
-                onAddRelation(relTarget, relType);
+                onAddRelation(character.id, relTarget, relType);
                 setRelTarget("");
                 setShowRelationForm(false);
               }}
