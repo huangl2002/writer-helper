@@ -60,9 +60,14 @@ export function WorkTree() {
   const handleAddWork = async () => {
     const title = prompt("作品名称：");
     if (!title?.trim()) return;
-    const w = await db.createWork(title.trim());
-    await refreshWorks();
-    setActiveWork(w.id);
+    try {
+      const w = await db.createWork(title.trim());
+      await refreshWorks();
+      setActiveWork(w.id);
+    } catch (e) {
+      console.error("Failed to create work:", e);
+      alert("创建作品失败，请重试");
+    }
   };
 
   const handleDeleteWork = async (w: Work) => {

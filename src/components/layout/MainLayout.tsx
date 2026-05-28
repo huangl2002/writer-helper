@@ -36,23 +36,22 @@ export function MainLayout() {
   const helperPanelOpen = useAppStore((s) => s.helperPanelOpen);
   const sidebarRef = useRef<PanelImperativeHandle>(null);
   const helperRef = useRef<PanelImperativeHandle>(null);
+  const mountedRef = useRef(false);
 
-  // Sync store state → panel collapse
+  // Sync store state → panel size (skip initial mount to respect defaultSize)
   useEffect(() => {
-    if (sidebarOpen) {
-      sidebarRef.current?.expand();
-    } else {
-      sidebarRef.current?.collapse();
-    }
+    if (!mountedRef.current) return;
+    sidebarRef.current?.resize(sidebarOpen ? 18 : 0);
   }, [sidebarOpen]);
 
   useEffect(() => {
-    if (helperPanelOpen) {
-      helperRef.current?.expand();
-    } else {
-      helperRef.current?.collapse();
-    }
+    if (!mountedRef.current) return;
+    helperRef.current?.resize(helperPanelOpen ? 22 : 0);
   }, [helperPanelOpen]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+  }, []);
 
   if (page === "home") {
     return <HomePage onNavigate={setPage} />;
@@ -76,11 +75,9 @@ export function MainLayout() {
           <Panel
             id="sidebar"
             panelRef={sidebarRef}
-            defaultSize={18}
-            minSize={12}
+            defaultSize={sidebarOpen ? 18 : 0}
+            minSize={0}
             maxSize={35}
-            collapsible
-            collapsedSize={0}
           >
             <aside className="h-full border-r border-border bg-surface-alt overflow-hidden">
               <Sidebar />
@@ -96,11 +93,9 @@ export function MainLayout() {
           <Panel
             id="helper"
             panelRef={helperRef}
-            defaultSize={22}
-            minSize={12}
+            defaultSize={helperPanelOpen ? 22 : 0}
+            minSize={0}
             maxSize={40}
-            collapsible
-            collapsedSize={0}
           >
             <aside className="h-full border-l border-border bg-surface-alt overflow-hidden">
               <HelperPanel />
