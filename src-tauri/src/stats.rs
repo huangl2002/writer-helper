@@ -1,6 +1,7 @@
 use crate::db::DbPool;
 use chrono::Datelike;
 use serde::Serialize;
+use std::collections::HashMap;
 use tauri::State;
 
 #[derive(Debug, Serialize)]
@@ -32,6 +33,22 @@ pub struct AllTimeStats {
     pub total_words: i64,
     pub total_chapters: i32,
     pub total_sessions: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct YearStats {
+    pub year: i32,
+    pub months: Vec<MonthData>,
+    pub total_words: i64,
+    pub total_days: i32,
+    pub best_streak: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct MonthData {
+    pub month: u32,
+    pub days: Vec<DailyStats>,
+    pub total: i64,
 }
 
 #[tauri::command]
@@ -165,5 +182,88 @@ pub fn get_all_time_stats(pool: State<'_, DbPool>) -> Result<AllTimeStats, Strin
         total_words,
         total_chapters,
         total_sessions,
+    })
+}
+
+#[tauri::command]
+pub fn get_year_stats(pool: State<'_, DbPool>, year: i32) -> Result<YearStats, String> {
+    let conn = pool.conn.lock().map_err(|e| e.to_string())?;
+    let start = format!("{}-01-01", year);
+    let end = format!("{}-12-31", year);
+
+    let mut stmt = conn
+        .prepare("SELECT date, COALESCE(SUM(word_delta), 0) FROM writing_sessions WHERE date >= ?1 AND date <= ?2 GROUP BY date ORDER BY date")
+        .map_err(|e| e.to_string())?;
+
+    let rows: Vec<DailyStats> = stmt
+        .query_map(rusqlite::params![start, end], |row| {
+            Ok(DailyStats {
+                date: row.get(0)?,
+                word_count: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    // Build date -> word_count map
+    let date_map: HashMap<String, i32> = rows
+        .iter()
+        .map(|d| (d.date.clone(), d.word_count))
+        .collect();
+
+    let total_words: i64 = rows.iter().map(|d| d.word_count as i64).sum();
+    let total_days = rows.iter().filter(|d| d.word_count > 0).count() as i32;
+
+    // Calculate best streak
+    let mut best_streak = 0i32;
+    let mut current_streak = 0i32;
+    let start_date = chrono::NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
+    let end_date = chrono::NaiveDate::from_ymd_opt(year, 12, 31).unwrap();
+    let mut d = start_date;
+    while d <= end_date {
+        let key = d.format("%Y-%m-%d").to_string();
+        if date_map.get(&key).map_or(0, |&v| v) > 0 {
+            current_streak += 1;
+            if current_streak > best_streak {
+                best_streak = current_streak;
+            }
+        } else {
+            current_streak = 0;
+        }
+        d = d.succ_opt().unwrap_or(end_date);
+    }
+
+    // Build month data
+    let mut months: Vec<MonthData> = Vec::new();
+    for month in 1..=12u32 {
+        let mut days: Vec<DailyStats> = Vec::new();
+        let mut total: i64 = 0;
+        let _first = chrono::NaiveDate::from_ymd_opt(year, month, 1).unwrap();
+        let last_day = if month == 12 { 31 } else {
+            chrono::NaiveDate::from_ymd_opt(year, month + 1, 1)
+                .unwrap()
+                .pred_opt()
+                .unwrap()
+                .day()
+        };
+        for day in 1..=last_day {
+            let date_str = format!("{}-{:02}-{:02}", year, month, day);
+            let wc = date_map.get(&date_str).copied().unwrap_or(0);
+            days.push(DailyStats {
+                date: date_str,
+                word_count: wc,
+            });
+            total += wc as i64;
+        }
+        months.push(MonthData { month, days, total });
+    }
+
+    Ok(YearStats {
+        year,
+        months,
+        total_words,
+        total_days,
+        best_streak,
     })
 }

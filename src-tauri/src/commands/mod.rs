@@ -4,6 +4,7 @@ pub mod characters;
 pub mod goals;
 pub mod notes;
 pub mod outlines;
+pub mod settings;
 pub mod snapshots;
 pub mod volumes;
 pub mod works;

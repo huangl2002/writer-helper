@@ -91,6 +91,7 @@ pub fn run() {
             stats::get_week_stats,
             stats::get_month_stats,
             stats::get_all_time_stats,
+            stats::get_year_stats,
             export::export_chapter_txt,
             export::export_chapter_md,
             export::export_work_txt,
@@ -113,6 +114,8 @@ pub fn run() {
             commands::ai::update_ai_config,
             commands::ai::set_default_ai_config,
             commands::ai::delete_ai_config,
+            commands::settings::get_setting,
+            commands::settings::set_setting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

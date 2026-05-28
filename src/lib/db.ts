@@ -350,3 +350,16 @@ export async function setDefaultAiConfig(id: string): Promise<void> {
 export async function deleteAiConfig(id: string): Promise<void> {
   return invoke("delete_ai_config", { id });
 }
+
+// Year stats
+export async function getYearStats(year: number): Promise<import("../types").YearStats> {
+  return invoke("get_year_stats", { year });
+}
+
+// Settings
+export async function getSetting(key: string): Promise<string | null> {
+  return invoke("get_setting", { key });
+}
+export async function setSetting(key: string, value: string): Promise<void> {
+  return invoke("set_setting", { key, value });
+}

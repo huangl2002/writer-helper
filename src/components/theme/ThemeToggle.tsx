@@ -1,5 +1,6 @@
 import { useAppStore } from "../../stores/appStore";
 import type { Theme } from "../../types";
+import * as db from "../../lib/db";
 
 const themes: { key: Theme; label: string; icon: string }[] = [
   { key: "light", label: "浅色", icon: "☀" },
@@ -13,7 +14,9 @@ export function ThemeToggle() {
 
   const cycle = () => {
     const idx = themes.findIndex((t) => t.key === theme);
-    setTheme(themes[(idx + 1) % themes.length].key);
+    const next = themes[(idx + 1) % themes.length].key;
+    setTheme(next);
+    db.setSetting("theme", next).catch(() => {});
   };
 
   const current = themes.find((t) => t.key === theme)!;

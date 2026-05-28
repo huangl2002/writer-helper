@@ -149,4 +149,24 @@ export interface Goal {
   created_at: string;
 }
 
+export interface YearStats {
+  year: number;
+  months: MonthData[];
+  total_words: number;
+  total_days: number;
+  best_streak: number;
+}
+
+export interface MonthData {
+  month: number;
+  days: DailyStats[];
+  total: number;
+}
+
+export interface ToastMessage {
+  id: string;
+  type: "success" | "error" | "info";
+  text: string;
+}
+
 export type Theme = "light" | "dark" | "eye-care";

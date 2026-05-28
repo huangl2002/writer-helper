@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Chapter, Theme, TodayStats, Volume, Work } from "../types";
+import type { Chapter, Theme, ToastMessage, TodayStats, Volume, Work } from "../types";
 
 interface AppState {
   works: Work[];
@@ -13,6 +13,10 @@ interface AppState {
   helperPanelOpen: boolean;
   layoutMode: "default" | "focus" | "outline";
   todayStats: TodayStats;
+
+  toasts: ToastMessage[];
+  addToast: (type: ToastMessage["type"], text: string) => void;
+  removeToast: (id: string) => void;
 
   setWorks: (works: Work[]) => void;
   setVolumes: (volumes: Volume[]) => void;
@@ -37,6 +41,16 @@ export const useAppStore = create<AppState>((set) => ({
   helperPanelOpen: false,
   layoutMode: "default",
   todayStats: { total_words: 0, session_count: 0 },
+
+  toasts: [],
+  addToast: (type, text) => {
+    const id = crypto.randomUUID();
+    set((s) => ({ toasts: [...s.toasts, { id, type, text }] }));
+    setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    }, 3000);
+  },
+  removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
   setWorks: (works) => set({ works }),
   setVolumes: (volumes) => set({ volumes }),

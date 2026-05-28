@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import Link from "@tiptap/extension-link";
 import { useAppStore } from "../../stores/appStore";
 import { EditorToolbar } from "./EditorToolbar";
 import { StatusBar } from "./StatusBar";
@@ -22,6 +23,7 @@ export function WritingEditor() {
 
   const [chapterTitle, setChapterTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [lastSavedWordCount, setLastSavedWordCount] = useState(0);
 
@@ -39,6 +41,7 @@ export function WritingEditor() {
     extensions: [
       StarterKit,
       Placeholder.configure({ placeholder: "开始写作..." }),
+      Link.configure({ openOnClick: false }),
     ],
     content: { type: "doc", content: [{ type: "paragraph" }] },
     onUpdate: ({ editor }) => {
@@ -102,8 +105,11 @@ export function WritingEditor() {
       setWordCount(0);
       setLastSavedWordCount(0);
       saveDataRef.current = null;
+      setIsLoading(false);
       return;
     }
+
+    setIsLoading(true);
 
     // Save the previous chapter before loading new one
     const prevChapterId = saveDataRef.current?.chapterId;
@@ -120,7 +126,8 @@ export function WritingEditor() {
         }
         setWordCount(ch.word_count);
         setLastSavedWordCount(ch.word_count);
-      });
+        setIsLoading(false);
+      }).catch(() => setIsLoading(false));
     };
 
     if (prevChapterId && prevChapterId !== activeChapterId) {
@@ -219,6 +226,11 @@ export function WritingEditor() {
           <input
             value={chapterTitle}
             onChange={(e) => setChapterTitle(e.target.value)}
+            onBlur={() => {
+              if (chapterTitle.trim() && activeChapterId) {
+                saveCurrentChapter().catch(console.error);
+              }
+            }}
             className="flex-1 text-lg font-semibold bg-transparent border-b border-transparent hover:border-border focus:border-accent focus:outline-none px-2 py-0.5 text-text-primary min-w-0"
             placeholder="章节标题"
           />
@@ -230,7 +242,12 @@ export function WritingEditor() {
       <EditorToolbar editor={editor} />
 
       {/* Editor */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
+      <div className="flex-1 overflow-y-auto px-6 py-4 relative">
+        {isLoading && (
+          <div className="absolute inset-0 bg-surface/60 z-10 flex items-center justify-center">
+            <span className="text-sm text-text-secondary">加载中...</span>
+          </div>
+        )}
         <div className="max-w-3xl mx-auto">
           <EditorContent
             editor={editor}
