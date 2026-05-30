@@ -98,7 +98,7 @@ export function ImportExport() {
             {chapters.length === 0 ? (
               <p className="text-xs text-text-secondary px-3 py-2">暂无章节</p>
             ) : (
-              chapters.slice(0, 10).map((ch) => (
+              chapters.map((ch) => (
                 <div key={ch.id} className="flex items-center gap-1">
                   <span className="text-xs truncate flex-1 text-text-primary">
                     {ch.title}

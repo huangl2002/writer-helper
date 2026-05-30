@@ -39,6 +39,7 @@ import type { Page } from "../layout/HomePage";
 interface Props { onNavigate?: (page: Page) => void }
 export function AiChat({ onNavigate }: Props) {
   const [config, setConfig] = useState<AiConfig | null>(null);
+  const [configError, setConfigError] = useState("");
   const [action, setAction] = useState("chat");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -47,13 +48,30 @@ export function AiChat({ onNavigate }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Try to load available config — use default, or fallback to any
     db.getDefaultAiConfig().then((cfg) => {
       if (cfg) {
-        db.getAiConfigDecrypted(cfg.id).then(setConfig).catch(() => {
-          setError("无法解密 API Key，请重新配置");
-        });
+        // Found default config, try to decrypt
+        db.getAiConfigDecrypted(cfg.id)
+          .then((decrypted) => {
+            setConfig(decrypted);
+            setConfigError("");
+          })
+          .catch(() => {
+            setConfigError("无法解密 API Key，加密密钥可能已变更，请重新配置 API Key");
+          });
+      } else {
+        // No default config set — check if any configs exist
+        db.listAiConfigs().then((all) => {
+          if (all.length > 0) {
+            setConfigError("已配置但未设为默认，请在 AI 配置中点击 ⭐ 设置默认");
+          }
+        }).catch(() => {});
       }
-    }).catch(console.error);
+    }).catch((e) => {
+      console.error("Failed to load AI config:", e);
+      setConfigError("加载 AI 配置失败，请重试");
+    });
   }, []);
 
   useEffect(() => {
@@ -178,13 +196,36 @@ export function AiChat({ onNavigate }: Props) {
     return (
       <div className="flex flex-col h-full p-4 items-center justify-center text-sm text-text-secondary">
         <p className="mb-2">未配置 AI 服务</p>
+        {configError && (
+          <p className="text-xs text-red-500 mb-2">{configError}</p>
+        )}
         <p className="text-xs mb-4">需要 OpenAI 兼容接口（支持 DeepSeek、通义千问等）</p>
-        <button
-          onClick={() => onNavigate?.("ai_settings")}
-          className="text-sm px-3 py-1 bg-accent text-white rounded hover:opacity-90"
-        >
-          前往配置
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => onNavigate?.("ai_settings")}
+            className="text-sm px-3 py-1 bg-accent text-white rounded hover:opacity-90"
+          >
+            前往配置
+          </button>
+          <button
+            onClick={() => {
+              setConfigError("");
+              db.getDefaultAiConfig().then((cfg) => {
+                if (cfg) {
+                  db.getAiConfigDecrypted(cfg.id).then((d) => {
+                    setConfig(d);
+                    setConfigError("");
+                  }).catch(() => setConfigError("解密失败"));
+                } else {
+                  setConfigError("未找到默认配置");
+                }
+              }).catch(() => setConfigError("加载失败"));
+            }}
+            className="text-sm px-3 py-1 border border-border rounded hover:bg-surface text-text-primary"
+          >
+            重新加载
+          </button>
+        </div>
       </div>
     );
   }

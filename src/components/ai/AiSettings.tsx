@@ -25,7 +25,42 @@ export function AiSettings() {
     max_tokens: 4096,
   });
   const [msg, setMsg] = useState("");
+  const [testing, setTesting] = useState(false);
   const { modalConfirm } = useModal();
+
+  const handleTestConnection = async () => {
+    if (!form.api_url || !form.api_key || !form.model_name) {
+      setMsg("请先填写 API 地址、Key 和模型名");
+      return;
+    }
+    setTesting(true);
+    setMsg("");
+    try {
+      const res = await fetch(form.api_url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${form.api_key}`,
+        },
+        body: JSON.stringify({
+          model: form.model_name,
+          messages: [{ role: "user", content: "hi" }],
+          max_tokens: 5,
+          stream: false,
+        }),
+      });
+      if (res.ok) {
+        setMsg("✓ 连接成功");
+      } else {
+        const errText = await res.text().catch(() => "");
+        setMsg(`✗ 连接失败: ${res.status} ${errText.slice(0, 100)}`);
+      }
+    } catch (e: any) {
+      setMsg(`✗ 网络错误: ${e.message}`);
+    } finally {
+      setTesting(false);
+    }
+  };
 
   useEffect(() => {
     db.listAiConfigs().then(setConfigs).catch(console.error);
@@ -160,12 +195,19 @@ export function AiSettings() {
               <input value={form.max_tokens} onChange={(e) => setForm({ ...form, max_tokens: parseInt(e.target.value) || 4096 })} className={inp} type="number" min="1" />
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <button onClick={handleSave} className="px-4 py-1.5 text-sm bg-accent text-white rounded hover:opacity-90">
               保存
             </button>
             <button onClick={() => setEditing(false)} className="px-4 py-1.5 text-sm border border-border rounded hover:bg-surface text-text-primary">
               取消
+            </button>
+            <button
+              onClick={handleTestConnection}
+              disabled={testing}
+              className="px-3 py-1.5 text-sm border border-border rounded hover:bg-surface-alt text-text-secondary disabled:opacity-50"
+            >
+              {testing ? "测试中..." : "测试连接"}
             </button>
           </div>
         </div>
