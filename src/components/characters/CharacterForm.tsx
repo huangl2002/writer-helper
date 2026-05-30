@@ -1,6 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Character } from "../../types";
 import * as db from "../../lib/db";
+
+function getPortraitKey(charId: string) {
+  return `aiwriter_portrait_${charId}`;
+}
+function loadPortrait(charId: string | undefined): string {
+  if (!charId) return "";
+  try { return localStorage.getItem(getPortraitKey(charId)) || ""; } catch { return ""; }
+}
+function savePortrait(charId: string, dataUrl: string) {
+  try { localStorage.setItem(getPortraitKey(charId), dataUrl); } catch {}
+}
 
 interface Props {
   character: Character | null;
@@ -18,7 +29,20 @@ export function CharacterForm({ character, workId, onSave, onCancel }: Props) {
   const [appearance, setAppearance] = useState(character?.appearance ?? "");
   const [personality, setPersonality] = useState(character?.personality ?? "");
   const [background, setBackground] = useState(character?.background ?? "");
+  const [portrait, setPortrait] = useState(loadPortrait(character?.id));
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setPortrait(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,29 +55,27 @@ export function CharacterForm({ character, workId, onSave, onCancel }: Props) {
     const customAttrs = character?.custom_attrs ?? "{}";
 
     try {
-      if (character) {
-        await db.updateCharacter(
-          character.id,
-          name.trim(),
-          JSON.stringify(aliasesArr),
-          gender,
-          appearance,
-          personality,
-          background,
-          customAttrs,
-        );
-      } else {
+      let charId = character?.id;
+      if (!charId) {
         const created = await db.createCharacter(workId, name.trim());
-        await db.updateCharacter(
-          created.id,
-          name.trim(),
-          JSON.stringify(aliasesArr),
-          gender,
-          appearance,
-          personality,
-          background,
-          customAttrs,
-        );
+        charId = created.id;
+      }
+      await db.updateCharacter(
+        charId,
+        name.trim(),
+        JSON.stringify(aliasesArr),
+        gender,
+        appearance,
+        personality,
+        background,
+        customAttrs,
+      );
+      // Save portrait after character is created/updated
+      if (charId) {
+        if (portrait) savePortrait(charId, portrait);
+        else {
+          try { localStorage.removeItem(getPortraitKey(charId)); } catch {}
+        }
       }
       onSave();
     } catch (e) {
@@ -69,6 +91,40 @@ export function CharacterForm({ character, workId, onSave, onCancel }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 p-3">
+      {/* Portrait */}
+      <div className="flex items-center gap-3">
+        <div
+          className="w-16 h-16 rounded-full border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-surface-alt cursor-pointer hover:border-accent shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+          title="点击上传头像"
+        >
+          {portrait ? (
+            <img src={portrait} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-2xl text-text-secondary">+</span>
+          )}
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <div>
+          <p className="text-xs text-text-secondary">角色头像</p>
+          {portrait && (
+            <button
+              type="button"
+              onClick={() => setPortrait("")}
+              className="text-xs text-red-500 hover:underline"
+            >
+              移除头像
+            </button>
+          )}
+        </div>
+      </div>
+
       <div>
         <label className={labelClass}>姓名 *</label>
         <input

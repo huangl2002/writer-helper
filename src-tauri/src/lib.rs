@@ -88,6 +88,7 @@ pub fn run() {
             commands::goals::delete_goal,
             stats::record_writing_session,
             stats::get_today_word_count,
+            stats::get_recent_stats,
             stats::get_week_stats,
             stats::get_month_stats,
             stats::get_all_time_stats,

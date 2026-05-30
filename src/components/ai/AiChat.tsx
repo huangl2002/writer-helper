@@ -41,11 +41,34 @@ export function AiChat({ onNavigate }: Props) {
   const [config, setConfig] = useState<AiConfig | null>(null);
   const [configError, setConfigError] = useState("");
   const [action, setAction] = useState("chat");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    // Load persisted messages
+    try {
+      const saved = localStorage.getItem("aiwriter_chat_messages");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Persist messages whenever they change
+  useEffect(() => {
+    try {
+      if (messages.length > 0) {
+        localStorage.setItem("aiwriter_chat_messages", JSON.stringify(messages.slice(-100)));
+      }
+    } catch {}
+  }, [messages]);
+
+  // Clear chat history
+  const clearMessages = () => {
+    setMessages([]);
+    try { localStorage.removeItem("aiwriter_chat_messages"); } catch {}
+  };
 
   useEffect(() => {
     // Try to load available config — use default, or fallback to any
@@ -233,7 +256,7 @@ export function AiChat({ onNavigate }: Props) {
   return (
     <div className="flex flex-col h-full">
       {/* Action selector */}
-      <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b border-border bg-surface-alt">
+      <div className="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-border bg-surface-alt">
         {ACTIONS.map((a) => (
           <button
             key={a.key}
@@ -251,6 +274,16 @@ export function AiChat({ onNavigate }: Props) {
             {a.label}
           </button>
         ))}
+        <div className="flex-1" />
+        {messages.length > 0 && (
+          <button
+            onClick={clearMessages}
+            className="text-xs px-1.5 py-0.5 border border-border rounded text-text-secondary hover:text-red-500 hover:border-red-300"
+            title="清除对话历史"
+          >
+            清除
+          </button>
+        )}
       </div>
 
       {/* Messages */}

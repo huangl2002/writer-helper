@@ -1,6 +1,10 @@
 import { useState } from "react";
 import type { Character, CharacterRelation } from "../../types";
 
+function getPortrait(charId: string): string {
+  try { return localStorage.getItem(`aiwriter_portrait_${charId}`) || ""; } catch { return ""; }
+}
+
 interface Props {
   character: Character;
   relations: CharacterRelation[];
@@ -52,16 +56,28 @@ export function CharacterCard({
     <div className="border border-border rounded-lg bg-surface p-3 space-y-3">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-semibold text-text-primary">
-            {genderIcon && <span className="mr-1">{genderIcon}</span>}
-            {character.name}
-          </h3>
+        <div className="flex items-start gap-3">
+          {(() => {
+            const p = getPortrait(character.id);
+            return p ? (
+              <img src={p} alt="" className="w-10 h-10 rounded-full object-cover shrink-0 border border-border" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-surface-alt flex items-center justify-center text-lg shrink-0 border border-border">
+                {genderIcon || "👤"}
+              </div>
+            );
+          })()}
+          <div>
+            <h3 className="font-semibold text-text-primary">
+              {genderIcon && <span className="mr-1">{genderIcon}</span>}
+              {character.name}
+            </h3>
           {aliases.length > 0 && (
             <p className="text-xs text-text-secondary">
               别名：{aliases.join("、")}
             </p>
           )}
+        </div>
         </div>
         <div className="flex gap-1">
           <button

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AiConfig, AiConfigInput, AllTimeStats, Chapter, ChapterSnapshot, Character, CharacterRelation, Goal, MonthlyStats, Note, Outline, TodayStats, Volume, WeekStats, Work } from "../types";
+import type { AiConfig, AiConfigInput, AllTimeStats, Chapter, ChapterSnapshot, Character, CharacterRelation, DailyStats, Goal, MonthlyStats, Note, Outline, TodayStats, Volume, WeekStats, Work } from "../types";
 
 // Works
 export async function createWork(title: string): Promise<Work> {
@@ -92,6 +92,9 @@ export async function recordWritingSession(
 }
 export async function getTodayWordCount(): Promise<TodayStats> {
   return invoke("get_today_word_count");
+}
+export async function getRecentStats(days: number): Promise<DailyStats[]> {
+  return invoke("get_recent_stats", { days });
 }
 export async function getWeekStats(): Promise<WeekStats> {
   return invoke("get_week_stats");

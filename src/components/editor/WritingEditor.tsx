@@ -43,6 +43,9 @@ export function WritingEditor() {
   const [showFindBar, setShowFindBar] = useState(false);
   const [showCrashRecovery, setShowCrashRecovery] = useState(false);
   const [crashData, setCrashData] = useState<CrashEntry | null>(null);
+  const [typewriterMode, setTypewriterMode] = useState(() => {
+    try { return localStorage.getItem("aiwriter_typewriter") === "1"; } catch { return false; }
+  });
 
   // Refs to track current state for save without stale closures
   const savingChapterRef = useRef<string | null>(null);
@@ -67,6 +70,22 @@ export function WritingEditor() {
     onUpdate: ({ editor }) => {
       const text = extractPlainText(JSON.stringify(editor.getJSON()));
       setWordCount(countWords(text));
+      // Typewriter scrolling: keep cursor in upper third
+      if (typewriterMode) {
+        requestAnimationFrame(() => {
+          const { from } = editor.state.selection;
+          const coords = editor.view.coordsAtPos(from);
+          const parent = editor.view.dom.closest(".overflow-y-auto") as HTMLElement;
+          if (parent && coords) {
+            const containerRect = parent.getBoundingClientRect();
+            const cursorY = coords.top - containerRect.top + parent.scrollTop;
+            const targetY = containerRect.height * 0.3;
+            if (coords.bottom > containerRect.bottom - 50) {
+              parent.scrollTo({ top: cursorY - targetY, behavior: "auto" });
+            }
+          }
+        });
+      }
     },
   });
 
@@ -287,6 +306,20 @@ export function WritingEditor() {
             >
               {layoutMode === "focus" ? "退出专注" : "专注"}
             </button>
+            <button
+              onClick={() => {
+                const next = !typewriterMode;
+                setTypewriterMode(next);
+                try { localStorage.setItem("aiwriter_typewriter", next ? "1" : "0"); } catch {}
+              }}
+              className={`text-sm px-2 py-1 border rounded ${
+                typewriterMode
+                  ? "bg-accent text-white border-accent"
+                  : "border-border hover:bg-surface text-text-primary"
+              }`}
+            >
+              打字机
+            </button>
           </div>
           <ThemeToggle />
         </div>
@@ -321,6 +354,21 @@ export function WritingEditor() {
             className="text-sm px-2 py-1 border border-border rounded hover:bg-surface shrink-0"
           >
             {layoutMode === "focus" ? "退出专注" : "专注"}
+          </button>
+          <button
+            onClick={() => {
+              const next = !typewriterMode;
+              setTypewriterMode(next);
+              try { localStorage.setItem("aiwriter_typewriter", next ? "1" : "0"); } catch {}
+            }}
+            className={`text-sm px-2 py-1 border rounded shrink-0 ${
+              typewriterMode
+                ? "bg-accent text-white border-accent"
+                : "border-border hover:bg-surface text-text-primary"
+            }`}
+            title="打字机模式：光标保持屏幕上部，内容自动上移"
+          >
+            打字机
           </button>
           <input
             value={chapterTitle}

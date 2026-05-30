@@ -98,6 +98,34 @@ pub fn get_today_word_count(pool: State<'_, DbPool>) -> Result<TodayStats, Strin
 }
 
 #[tauri::command]
+pub fn get_recent_stats(
+    pool: State<'_, DbPool>,
+    days: i32,
+) -> Result<Vec<DailyStats>, String> {
+    let conn = pool.conn.lock().map_err(|e| e.to_string())?;
+    let end = chrono::Utc::now();
+    let start = end - chrono::Duration::days(days as i64);
+
+    let mut stmt = conn
+        .prepare("SELECT date, COALESCE(SUM(word_delta), 0) FROM writing_sessions WHERE date >= ?1 AND date <= ?2 GROUP BY date ORDER BY date")
+        .map_err(|e| e.to_string())?;
+
+    let days: Vec<DailyStats> = stmt
+        .query_map(
+            rusqlite::params![start.format("%Y-%m-%d").to_string(), end.format("%Y-%m-%d").to_string()],
+            |row| Ok(DailyStats {
+                date: row.get(0)?,
+                word_count: row.get(1)?,
+            }),
+        )
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    Ok(days)
+}
+
+#[tauri::command]
 pub fn get_week_stats(pool: State<'_, DbPool>) -> Result<WeekStats, String> {
     let conn = pool.conn.lock().map_err(|e| e.to_string())?;
     let end = chrono::Utc::now();
