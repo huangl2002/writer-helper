@@ -8,10 +8,10 @@ interface Props {
 }
 
 function btnBase(active: boolean) {
-  return `px-2 py-1 text-sm rounded border transition-colors ${
+  return `px-2 py-1 text-sm rounded-md border transition-all duration-150 btn-pulse ${
     active
-      ? "bg-accent text-white border-accent"
-      : "border-border hover:bg-surface text-text-primary"
+      ? "bg-accent text-white border-accent shadow-sm"
+      : "border-transparent hover:bg-surface-hover hover:border-border text-text-primary"
   }`;
 }
 

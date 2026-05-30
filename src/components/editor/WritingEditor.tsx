@@ -494,7 +494,7 @@ export function WritingEditor() {
         <SelectionToolbar editor={editor} />
         {/* Paper */}
         <div className="max-w-[210mm] mx-auto my-6">
-          <div className="bg-surface shadow-lg rounded-sm mx-4">
+          <div className="bg-surface paper-elevation mx-4 transition-shadow duration-500" style={{ borderRadius: "var(--radius-md)" }}>
             <div className="px-8 py-10 min-h-[297mm]">
               <EditorContent
                 editor={editor}

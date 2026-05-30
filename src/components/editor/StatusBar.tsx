@@ -55,7 +55,7 @@ export function StatusBar({ wordCount, isSaving, chapterIndex, totalChapters }: 
     : 0;
 
   return (
-    <div className="flex items-center px-4 py-1 border-t border-border bg-surface-alt text-xs text-text-secondary shrink-0">
+    <div className="flex items-center px-4 py-1.5 border-t border-border bg-surface-alt/70 backdrop-blur-sm text-xs text-text-secondary shrink-0">
       {/* Left section */}
       <div className="flex items-center gap-4 relative">
         {totalChapters > 0 && (

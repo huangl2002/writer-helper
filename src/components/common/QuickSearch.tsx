@@ -99,9 +99,9 @@ export function QuickSearch({ visible, onClose }: Props) {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/30" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] bg-black/20 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-surface border border-border rounded-xl shadow-2xl w-[500px] max-w-[90vw] overflow-hidden"
+        className="bg-surface border border-border rounded-2xl shadow-xl w-[520px] max-w-[90vw] overflow-hidden animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-border">

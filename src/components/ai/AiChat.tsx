@@ -295,16 +295,16 @@ export function AiChat({ onNavigate }: Props) {
         {messages.map((msg, i) => (
           <div
             key={i}
-            className={`text-sm rounded-lg px-3 py-2 max-w-[90%] ${
+            className={`text-sm rounded-2xl px-4 py-2.5 max-w-[85%] msg-enter ${
               msg.role === "user"
-                ? "bg-accent/10 text-text-primary ml-auto"
-                : "bg-surface-alt text-text-primary"
+                ? "bg-accent/10 text-text-primary ml-auto rounded-br-md"
+                : "bg-surface-alt border border-border text-text-primary rounded-bl-md"
             }`}
           >
-            <div className="text-xs text-text-secondary mb-0.5">
+            <div className="text-xs text-text-muted mb-0.5 font-medium">
               {msg.role === "user" ? "你" : "AI"}
             </div>
-            <div className="whitespace-pre-wrap">{msg.content}</div>
+            <div className="whitespace-pre-wrap leading-relaxed">{msg.content || (loading ? "..." : "")}</div>
             {msg.role === "assistant" && action !== "chat" && (
               <button
                 onClick={() => {

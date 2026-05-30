@@ -49,9 +49,9 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     <ModalCtx.Provider value={{ modalPrompt, modalConfirm }}>
       {children}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => close(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => close(null)}>
           <div
-            className="bg-surface border border-border rounded-xl shadow-xl p-5 w-80 max-w-[90vw]"
+            className="bg-surface border border-border rounded-2xl shadow-xl p-6 w-80 max-w-[90vw] animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             <p className="text-sm text-text-primary mb-3">{modal.title}</p>

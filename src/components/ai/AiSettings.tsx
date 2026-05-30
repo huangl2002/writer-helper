@@ -132,7 +132,7 @@ export function AiSettings() {
     "w-full px-2 py-1 text-sm bg-surface border border-border rounded text-text-primary focus:border-accent focus:outline-none";
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-4">
+    <div className="max-w-2xl mx-auto p-6 space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-text-primary">AI 配置</h1>
         <button
@@ -150,7 +150,7 @@ export function AiSettings() {
       )}
 
       {editing ? (
-        <div className="border border-border rounded-lg p-4 space-y-3 bg-surface-alt">
+        <div className="border border-border rounded-2xl p-5 space-y-4 bg-surface-alt animate-scale-in">
           <h2 className="font-semibold text-text-primary">
             {editId ? "编辑配置" : "新建配置"}
           </h2>

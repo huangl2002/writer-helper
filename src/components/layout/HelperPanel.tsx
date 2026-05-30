@@ -38,12 +38,12 @@ export function HelperPanel() {
 
   return (
     <div className="flex flex-col h-full overflow-y-auto p-3 gap-3">
-      <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wider">
+      <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
         写作助手
       </h2>
 
       {/* Today's stats */}
-      <div className="bg-surface-alt rounded-lg p-3 space-y-2">
+      <div className="rounded-xl p-4 space-y-2 animate-fade-in" style={{ background: "linear-gradient(135deg, var(--color-accent-soft), var(--color-surface-alt))" }}>
         <h3 className="text-xs font-medium text-text-secondary">今日码字</h3>
         <div className="text-2xl font-bold text-accent">
           {todayStats.total_words.toLocaleString()}
