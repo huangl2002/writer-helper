@@ -84,14 +84,19 @@ export function SelectionToolbar({ editor }: Props) {
     if (!selectedText.trim()) return;
 
     try {
-      const cfg = await db.getDefaultAiConfig();
+      let cfg = await db.getDefaultAiConfig();
       if (!cfg) {
-        setError("请先配置 AI 服务");
-        return;
+        // Fallback: try any available config
+        const all = await db.listAiConfigs();
+        if (all.length === 0) {
+          setError("请先配置 AI 服务");
+          return;
+        }
+        cfg = all[0];
       }
       const config = await db.getAiConfigDecrypted(cfg.id);
       if (!config) {
-        setError("无法解密 API Key");
+        setError("无法解密 API Key，请重新配置");
         return;
       }
 

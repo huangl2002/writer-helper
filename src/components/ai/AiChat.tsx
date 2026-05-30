@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { AiConfig } from "../../types";
 import * as db from "../../lib/db";
 
@@ -75,32 +75,38 @@ export function AiChat({ onNavigate }: Props) {
     try { localStorage.removeItem("aiwriter_chat_messages"); } catch {}
   };
 
-  useEffect(() => {
-    // Try to load available config — use default, or fallback to any
+  const loadConfig = useCallback((silent?: boolean) => {
+    // Try default first, then fall back to any available config
     db.getDefaultAiConfig().then((cfg) => {
       if (cfg) {
-        // Found default config, try to decrypt
-        db.getAiConfigDecrypted(cfg.id)
-          .then((decrypted) => {
+        return db.getAiConfigDecrypted(cfg.id).then((decrypted) => {
+          setConfig(decrypted);
+          setConfigError("");
+        });
+      }
+      // No default — try any available config as fallback
+      return db.listAiConfigs().then((all) => {
+        if (all.length > 0) {
+          // Auto-use the first available config instead of just showing an error
+          const first = all[0];
+          return db.getAiConfigDecrypted(first.id).then((decrypted) => {
             setConfig(decrypted);
             setConfigError("");
-          })
-          .catch(() => {
-            setConfigError("无法解密 API Key，加密密钥可能已变更，请重新配置 API Key");
+            // Also set it as default for next time
+            db.setDefaultAiConfig(first.id).catch(() => {});
           });
-      } else {
-        // No default config set — check if any configs exist
-        db.listAiConfigs().then((all) => {
-          if (all.length > 0) {
-            setConfigError("已配置但未设为默认，请在 AI 配置中点击 ⭐ 设置默认");
-          }
-        }).catch(() => {});
-      }
-    }).catch((e) => {
+        }
+      });
+    }).catch((e: any) => {
+      const msg = typeof e === "string" ? e : e?.message || "未知错误";
+      if (!silent) setConfigError(`加载 AI 配置失败：${msg}`);
       console.error("Failed to load AI config:", e);
-      setConfigError("加载 AI 配置失败，请重试");
     });
   }, []);
+
+  useEffect(() => {
+    loadConfig(true);
+  }, [loadConfig]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
@@ -236,19 +242,7 @@ export function AiChat({ onNavigate }: Props) {
             前往配置
           </button>
           <button
-            onClick={() => {
-              setConfigError("");
-              db.getDefaultAiConfig().then((cfg) => {
-                if (cfg) {
-                  db.getAiConfigDecrypted(cfg.id).then((d) => {
-                    setConfig(d);
-                    setConfigError("");
-                  }).catch(() => setConfigError("解密失败"));
-                } else {
-                  setConfigError("未找到默认配置");
-                }
-              }).catch(() => setConfigError("加载失败"));
-            }}
+            onClick={() => { setConfigError(""); loadConfig(false); }}
             className="text-sm px-3 py-1 border border-border rounded hover:bg-surface text-text-primary"
           >
             重新加载
