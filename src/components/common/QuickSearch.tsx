@@ -1,73 +1,81 @@
-import { useEffect, useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { extractPlainText } from "../../lib/utils";
 
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
 
+interface EnrichedChapter {
+  id: string;
+  title: string;
+  workTitle: string;
+  wordCount: number;
+  plainText: string;
+}
+
 export function QuickSearch({ visible, onClose }: Props) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ id: string; title: string; workTitle: string; path: string; wordCount: number }[]>([]);
+  const [results, setResults] = useState<EnrichedChapter[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const chapters = useAppStore((s) => s.chapters);
   const works = useAppStore((s) => s.works);
   const setActiveWork = useAppStore((s) => s.setActiveWork);
   const setActiveChapter = useAppStore((s) => s.setActiveChapter);
+  const initializedRef = useRef(false);
 
-  useEffect(() => {
-    if (visible) {
-      setQuery("");
-      setResults([]);
-      setSelectedIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
-      // Collect all chapters with their work titles
-      const all = chapters.map((ch) => {
-        const work = works.find((w) => w.id === ch.work_id);
-        return {
-          id: ch.id,
-          title: ch.title,
-          workTitle: work?.title || "未知作品",
-          path: `${work?.title || "?"} > ${ch.title}`,
-          wordCount: ch.word_count,
-        };
-      });
-      setResults(all.slice(0, 50));
-    }
-  }, [visible, chapters, works]);
+  // Pre-compute enriched chapter list with plain text (only when visible opens)
+  const enrichedList = useMemo(() => {
+    return chapters.map((ch) => {
+      const work = works.find((w) => w.id === ch.work_id);
+      let plainText = "";
+      if (ch.content_json) {
+        try { plainText = extractPlainText(ch.content_json); } catch {}
+      }
+      return {
+        id: ch.id,
+        title: ch.title,
+        workTitle: work?.title || "未知作品",
+        wordCount: ch.word_count,
+        plainText,
+      };
+    });
+  }, [chapters, works]);
+
+  // Reset on open, but only once per open cycle
+  if (visible && !initializedRef.current) {
+    initializedRef.current = true;
+    setQuery("");
+    setResults(enrichedList.slice(0, 50));
+    setSelectedIdx(0);
+  }
+  if (!visible && initializedRef.current) {
+    initializedRef.current = false;
+  }
+
+  // Auto-focus on open
+  const focusRef = useRef(false);
+  if (visible && !focusRef.current) {
+    focusRef.current = true;
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }
+  if (!visible) {
+    focusRef.current = false;
+  }
 
   const doSearch = (q: string) => {
     setQuery(q);
     if (!q.trim()) {
-      const all = chapters.map((ch) => {
-        const work = works.find((w) => w.id === ch.work_id);
-        return {
-          id: ch.id,
-          title: ch.title,
-          workTitle: work?.title || "未知作品",
-          path: `${work?.title || "?"} > ${ch.title}`,
-          wordCount: ch.word_count,
-        };
-      });
-      setResults(all.slice(0, 50));
+      setResults(enrichedList.slice(0, 50));
       setSelectedIdx(0);
       return;
     }
     const lower = q.toLowerCase();
-    const filtered = chapters
-      .filter((ch) => ch.title.toLowerCase().includes(lower) || ch.content_json?.toLowerCase().includes(lower))
-      .slice(0, 30)
-      .map((ch) => {
-        const work = works.find((w) => w.id === ch.work_id);
-        return {
-          id: ch.id,
-          title: ch.title,
-          workTitle: work?.title || "未知作品",
-          path: `${work?.title || "?"} > ${ch.title}`,
-          wordCount: ch.word_count,
-        };
-      });
+    const filtered = enrichedList
+      .filter((ch) => ch.title.toLowerCase().includes(lower) || ch.plainText.toLowerCase().includes(lower))
+      .slice(0, 30);
     setResults(filtered);
     setSelectedIdx(0);
   };

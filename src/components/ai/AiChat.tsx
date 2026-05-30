@@ -55,13 +55,18 @@ export function AiChat({ onNavigate }: Props) {
   const [error, setError] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Persist messages whenever they change
+  // Persist messages when loading completes (not on every streaming chunk)
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    try {
-      if (messages.length > 0) {
-        localStorage.setItem("aiwriter_chat_messages", JSON.stringify(messages.slice(-100)));
-      }
-    } catch {}
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      try {
+        if (messages.length > 0) {
+          localStorage.setItem("aiwriter_chat_messages", JSON.stringify(messages.slice(-100)));
+        }
+      } catch {}
+    }, 3000);
+    return () => { if (persistTimerRef.current) clearTimeout(persistTimerRef.current); };
   }, [messages]);
 
   // Clear chat history

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { formatTime } from "../../lib/utils";
+import * as db from "../../lib/db";
 import type { Goal } from "../../types";
 
 interface Props {
@@ -22,29 +23,22 @@ export function StatusBar({ wordCount, isSaving, chapterIndex, totalChapters }: 
   const [goal, setGoal] = useState<Goal | null>(null);
   const [showChapterList, setShowChapterList] = useState(false);
 
-  // Session timer
+  // Combined session timer + clock (single interval)
   useEffect(() => {
-    const timer = setInterval(
-      () => setElapsed(Math.floor((Date.now() - sessionStart) / 1000)),
-      1000,
-    );
+    const tick = () => {
+      setNow(new Date());
+      setElapsed(Math.floor((Date.now() - sessionStart) / 1000));
+    };
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [sessionStart]);
-
-  // Clock
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Load goal
   useEffect(() => {
     if (!activeWorkId) return;
-    import("../../lib/db").then((db) => {
-      db.getActiveGoal(activeWorkId, "daily_words")
-        .then(setGoal)
-        .catch(() => {});
-    });
+    db.getActiveGoal(activeWorkId, "daily_words")
+      .then(setGoal)
+      .catch(() => {});
   }, [activeWorkId]);
 
   const formatElapsed = (s: number) => {

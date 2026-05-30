@@ -208,8 +208,11 @@ export function WritingEditor() {
       }
     };
     const timer = setInterval(crashSave, 10000);
-    // Clear crash buffer on clean unmount (app closing normally)
-    return () => { clearInterval(timer); };
+    return () => {
+      clearInterval(timer);
+      // Clear crash buffer on clean unmount
+      try { localStorage.removeItem(CRASH_BUFFER_KEY); } catch {}
+    };
   }, [activeChapterId, chapterTitle, editor]);
 
   // Check for crash recovery on mount
@@ -251,52 +254,71 @@ export function WritingEditor() {
   // One-click formatting for web novels
   const handleFormat = useCallback(() => {
     if (!editor) return;
-    const { doc } = editor.state;
-    const newContent: any[] = [];
     const fullWidthMap: Record<string, string> = {
       ",": "，", ".": "。", "!": "！", "?": "？", ":": "：", ";": "；",
-      "(": "（", ")": "）", "<": "《", ">": "》", '"': '"', "'": "'",
+      "(": "（", ")": "）", "<": "《", ">": "》",
     };
+    // Smart quote: track state to alternate left/right
+    let quoteOpen = true;
+    const fullWidthQuotes: Record<string, string> = { '"': '“', "'": '‘' };
+    const closeQuotes: Record<string, string> = { '"': '”', "'": '’' };
 
-    doc.descendants((node, _pos) => {
-      if (node.type.name === "paragraph") {
-        let text = node.textContent;
-        // Convert half-width punctuation to full-width (skip code blocks)
-        if (node.textContent) {
-          for (const [half, full] of Object.entries(fullWidthMap)) {
-            text = text.split(half).join(full);
+    const doc = editor.getJSON();
+    // Recursively walk JSON and convert punctuation in text nodes only
+    function walk(node: any) {
+      if (!node) return;
+      if (node.type === "codeBlock") return; // skip code blocks
+      if (node.text) {
+        let t = node.text;
+        for (const [half, full] of Object.entries(fullWidthMap)) {
+          t = t.split(half).join(full);
+        }
+        // Smart quotes: alternate left/right
+        let result = "";
+        for (const ch of t) {
+          if (fullWidthQuotes[ch]) {
+            result += quoteOpen ? fullWidthQuotes[ch] : closeQuotes[ch];
+            quoteOpen = !quoteOpen;
+          } else {
+            result += ch;
           }
         }
-        if (text.trim()) {
-          newContent.push({
-            type: "paragraph",
-            content: [{ type: "text", text: text }],
-          });
-          // Add blank paragraph between content paragraphs
-          newContent.push({ type: "paragraph" });
-        }
-      } else if (node.type.name === "heading") {
-        newContent.push(node.toJSON());
-        newContent.push({ type: "paragraph" });
-      } else if (node.type.name === "horizontalRule") {
-        newContent.push(node.toJSON());
-      } else if (node.type.name === "bulletList" || node.type.name === "orderedList") {
-        newContent.push(node.toJSON());
-        newContent.push({ type: "paragraph" });
-      } else if (node.type.name === "blockquote") {
-        newContent.push(node.toJSON());
-        newContent.push({ type: "paragraph" });
+        node.text = result;
       }
-    });
+      if (node.content && Array.isArray(node.content)) {
+        for (const child of node.content) walk(child);
+      }
+    }
+    walk(doc);
 
-    // Remove trailing empty paragraphs
-    while (newContent.length > 0 && newContent[newContent.length - 1].type === "paragraph" && (!newContent[newContent.length - 1].content || newContent[newContent.length - 1].content.length === 0)) {
-      newContent.pop();
+    // Add blank paragraphs between content blocks
+    const content = doc.content || [];
+    const spaced: any[] = [];
+    for (let i = 0; i < content.length; i++) {
+      spaced.push(content[i]);
+      // Add blank line after non-empty paragraphs, headings
+      const t = content[i].type;
+      const cArr = (content[i].content as any[] | undefined);
+      const hasText = t === "paragraph" && Array.isArray(cArr) && cArr.length > 0 && cArr[0]?.text;
+      if (hasText ||
+          t === "heading" || t === "blockquote") {
+        // Don't add if next item is already empty paragraph
+        const next = content[i + 1];
+        const nArr = (next.content as any[] | undefined);
+        if (!next || !(next.type === "paragraph" && (!nArr || nArr.length === 0 || !nArr[0]?.text))) {
+          spaced.push({ type: "paragraph" });
+        }
+      }
+    }
+    // Remove trailing empty paragraph
+    if (spaced.length > 0) {
+      const last = spaced[spaced.length - 1];
+      if (last.type === "paragraph" && (!last.content || last.content.length === 0 || !last.content[0]?.text)) {
+        spaced.pop();
+      }
     }
 
-    if (newContent.length > 0) {
-      editor.commands.setContent({ type: "doc", content: newContent });
-    }
+    editor.commands.setContent({ type: "doc", content: spaced });
   }, [editor]);
 
   // Keyboard shortcuts
@@ -325,6 +347,25 @@ export function WritingEditor() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [saveCurrentChapter]);
+
+  // Shared typewriter toggle button
+  const TypewriterBtn = () => (
+    <button
+      onClick={() => {
+        const next = !typewriterMode;
+        setTypewriterMode(next);
+        try { localStorage.setItem("aiwriter_typewriter", next ? "1" : "0"); } catch {}
+      }}
+      className={`text-sm px-2 py-1 border rounded shrink-0 ${
+        typewriterMode
+          ? "bg-accent text-white border-accent"
+          : "border-border hover:bg-surface text-text-primary"
+      }`}
+      title="打字机模式：光标保持屏幕上部，内容自动上移"
+    >
+      打字机
+    </button>
+  );
 
   // Compute chapter position
   const workChapters = chapters.filter((c) => c.work_id === activeWorkId);
@@ -357,20 +398,7 @@ export function WritingEditor() {
             >
               {layoutMode === "focus" ? "退出专注" : "专注"}
             </button>
-            <button
-              onClick={() => {
-                const next = !typewriterMode;
-                setTypewriterMode(next);
-                try { localStorage.setItem("aiwriter_typewriter", next ? "1" : "0"); } catch {}
-              }}
-              className={`text-sm px-2 py-1 border rounded ${
-                typewriterMode
-                  ? "bg-accent text-white border-accent"
-                  : "border-border hover:bg-surface text-text-primary"
-              }`}
-            >
-              打字机
-            </button>
+            <TypewriterBtn />
           </div>
           <ThemeToggle />
         </div>
@@ -406,21 +434,7 @@ export function WritingEditor() {
           >
             {layoutMode === "focus" ? "退出专注" : "专注"}
           </button>
-          <button
-            onClick={() => {
-              const next = !typewriterMode;
-              setTypewriterMode(next);
-              try { localStorage.setItem("aiwriter_typewriter", next ? "1" : "0"); } catch {}
-            }}
-            className={`text-sm px-2 py-1 border rounded shrink-0 ${
-              typewriterMode
-                ? "bg-accent text-white border-accent"
-                : "border-border hover:bg-surface text-text-primary"
-            }`}
-            title="打字机模式：光标保持屏幕上部，内容自动上移"
-          >
-            打字机
-          </button>
+          <TypewriterBtn />
           <input
             value={chapterTitle}
             onChange={(e) => setChapterTitle(e.target.value)}

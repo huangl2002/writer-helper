@@ -45,7 +45,7 @@ export function EditorToolbar({ editor, onFind, onFormat }: Props) {
     if (!linkUrl.trim()) {
       editor.chain().focus().unsetLink().run();
     } else {
-      const url = linkUrl.startsWith("http") ? linkUrl : `https://${linkUrl}`;
+      const url = /^https?:\/\//i.test(linkUrl) ? linkUrl : `https://${linkUrl}`;
       editor.chain().focus().setLink({ href: url }).run();
     }
     setShowLinkInput(false);
