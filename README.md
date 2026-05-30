@@ -249,12 +249,19 @@ CREATE TABLE settings (
 
 ### 4.1 写作编辑器
 
-- 基于 Tiptap 的富文本编辑器
-- 支持 Markdown 快捷输入（`# 标题`、`**加粗**` 等实时转换）
-- 编辑器底部状态栏实时显示：当前章节字数、今日总字数、当前时间
-- 自动保存（30秒无操作自动存草稿）
-- 专注模式：隐藏所有侧边栏，仅保留白底/暗底编辑区 + 底部字数
-- 分屏模式：左侧大纲/参考资料，右侧编辑器
+- 基于 Tiptap 的富文本编辑器，支持 Markdown 快捷输入（`# 标题`、`**加粗**` 等实时转换）
+- **Word 风格分组工具栏**：编辑 / 格式 / 段落 / 列表 / 对齐 / 插入 六个功能区
+  - 支持加粗、斜体、下划线、删除线、高亮标记
+  - 文本对齐（左/中/右/两端对齐）
+  - 一键清除格式
+- **查找替换**：Ctrl+F 查找，Ctrl+H 替换，实时匹配计数，支持全部替换
+- **纸张风格编辑区**：A4 尺寸白色卡片居中显示，模拟真实纸张写作体验
+- 编辑器底部状态栏（Word 风格三段式布局）：
+  - 左侧：章节位置（第 X/总数 章）+ 本章字数
+  - 中间：每日目标达成状态
+  - 右侧：今日字数 + 码字计时 + 保存状态 + 实时时钟
+- 自动保存（30秒 + Ctrl+S + 失焦 + 切换章节时触发）
+- 专注模式：隐藏所有侧边栏，仅保留编辑区
 
 ### 4.2 章节管理
 
@@ -310,11 +317,10 @@ CREATE TABLE settings (
 
 ### 4.9 布局定制
 
+- 编辑器采用 Word 式纸张风格：A4 尺寸白色卡片 + 阴影，两侧主题色背景
 - 默认布局：左侧侧边栏 + 中间编辑器 + 右侧辅助面板
-- 专注布局：仅编辑器
-- 大纲布局：左大纲树 + 右编辑器
-- 角色布局：编辑器 + 角色参考面板
-- 用户可自由拖拽面板调整大小，布局可保存和切换
+- 专注布局：仅编辑器，自动居中纸张
+- 面板支持拖拽调整大小，侧栏/辅栏可独立展开收起
 
 ### 4.10 历史版本
 
@@ -416,7 +422,7 @@ CREATE TABLE settings (
 
 | 模块 | 详情 | 状态 |
 |------|------|------|
-| 写作编辑器 | Tiptap 富文本编辑器，加粗/斜体/H1-H3/分隔线，30秒自动保存，专注模式 | ✅ |
+| 写作编辑器 | Tiptap 富文本编辑器，Word 风格分组工具栏，查找替换，纸张风格编辑区，30秒自动保存，专注模式 | ✅ |
 | 章节管理 | 作品→卷→章节树形结构，拖拽排序（dnd-kit），右键菜单（重命名/状态变更/移动/删除），搜索过滤 | ✅ |
 | 角色系统 | 角色卡片（姓名/性别/别名/外貌/性格/背景），角色关系管理，自定义属性 | ✅ |
 | 大纲系统 | 无限层级大纲树，节点类型（卷/章/情节/场景），完成标记，关联章节 | ✅ |
@@ -469,7 +475,7 @@ ai-writer-helper/
 ├── src/                          # React 前端
 │   ├── components/
 │   │   ├── layout/               # MainLayout, HomePage, Sidebar, HelperPanel
-│   │   ├── editor/               # WritingEditor, EditorToolbar, StatusBar
+│   │   ├── editor/               # WritingEditor, EditorToolbar, FindReplaceBar, StatusBar
 │   │   ├── works/                # WorkTree（统一作品+卷+章节树）
 │   │   ├── chapters/             # ChapterActions
 │   │   ├── characters/           # CharacterList, CharacterCard, CharacterForm
@@ -510,6 +516,7 @@ ai-writer-helper/
 **前端**：
 - `react` 18 + `react-dom` — UI 框架
 - `@tiptap/react` + `@tiptap/starter-kit` — 富文本编辑器
+- `@tiptap/extension-underline` / `@tiptap/extension-text-align` / `@tiptap/extension-highlight` — 编辑器扩展
 - `zustand` — 状态管理
 - `tailwindcss` — 样式
 - `@dnd-kit/core` + `@dnd-kit/sortable` — 拖拽排序

@@ -3,9 +3,13 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
+import Highlight from "@tiptap/extension-highlight";
 import { useAppStore } from "../../stores/appStore";
 import { EditorToolbar } from "./EditorToolbar";
 import { StatusBar } from "./StatusBar";
+import { FindReplaceBar } from "./FindReplaceBar";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { extractPlainText, countWords } from "../../lib/utils";
 import * as db from "../../lib/db";
@@ -20,12 +24,14 @@ export function WritingEditor() {
   const setLayoutMode = useAppStore((s) => s.setLayoutMode);
   const layoutMode = useAppStore((s) => s.layoutMode);
   const setTodayStats = useAppStore((s) => s.setTodayStats);
+  const chapters = useAppStore((s) => s.chapters);
 
   const [chapterTitle, setChapterTitle] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [lastSavedWordCount, setLastSavedWordCount] = useState(0);
+  const [showFindBar, setShowFindBar] = useState(false);
 
   // Refs to track current state for save without stale closures
   const savingChapterRef = useRef<string | null>(null);
@@ -42,6 +48,9 @@ export function WritingEditor() {
       StarterKit,
       Placeholder.configure({ placeholder: "开始写作..." }),
       Link.configure({ openOnClick: false }),
+      Underline,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Highlight,
     ],
     content: { type: "doc", content: [{ type: "paragraph" }] },
     onUpdate: ({ editor }) => {
@@ -69,7 +78,6 @@ export function WritingEditor() {
     if (!data || !editor) return;
 
     const currentId = data.chapterId;
-    // Prevent concurrent saves for the same chapter
     if (savingChapterRef.current === currentId) return;
     savingChapterRef.current = currentId;
 
@@ -78,7 +86,6 @@ export function WritingEditor() {
     const delta = data.wordCount - data.lastSavedWordCount;
     try {
       await db.updateChapter(currentId, data.title, json, data.wordCount);
-      // Check for auto-snapshot
       db.autoSnapshotIfNeeded(currentId).catch(() => {});
       if (delta !== 0 && data.workId) {
         await db.recordWritingSession(data.workId, currentId, delta);
@@ -111,23 +118,24 @@ export function WritingEditor() {
 
     setIsLoading(true);
 
-    // Save the previous chapter before loading new one
     const prevChapterId = saveDataRef.current?.chapterId;
     const doLoad = () => {
-      db.getChapter(activeChapterId).then((ch) => {
-        setChapterTitle(ch.title);
-        try {
-          editor?.commands.setContent(JSON.parse(ch.content_json));
-        } catch {
-          editor?.commands.setContent({
-            type: "doc",
-            content: [{ type: "paragraph" }],
-          });
-        }
-        setWordCount(ch.word_count);
-        setLastSavedWordCount(ch.word_count);
-        setIsLoading(false);
-      }).catch(() => setIsLoading(false));
+      db.getChapter(activeChapterId)
+        .then((ch) => {
+          setChapterTitle(ch.title);
+          try {
+            editor?.commands.setContent(JSON.parse(ch.content_json));
+          } catch {
+            editor?.commands.setContent({
+              type: "doc",
+              content: [{ type: "paragraph" }],
+            });
+          }
+          setWordCount(ch.word_count);
+          setLastSavedWordCount(ch.word_count);
+          setIsLoading(false);
+        })
+        .catch(() => setIsLoading(false));
     };
 
     if (prevChapterId && prevChapterId !== activeChapterId) {
@@ -151,17 +159,38 @@ export function WritingEditor() {
     return () => clearInterval(timer);
   }, [saveCurrentChapter]);
 
-  // Save on Ctrl+S
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      const mod = e.ctrlKey || e.metaKey;
+
+      // Save
+      if (mod && e.key === "s") {
         e.preventDefault();
         saveCurrentChapter();
+      }
+
+      // Find
+      if (mod && e.key === "f") {
+        e.preventDefault();
+        setShowFindBar(true);
+      }
+
+      // Find/Replace
+      if (mod && e.key === "h") {
+        e.preventDefault();
+        setShowFindBar(true);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [saveCurrentChapter]);
+
+  // Compute chapter position
+  const workChapters = chapters.filter((c) => c.work_id === activeWorkId);
+  const chapterIndex = workChapters.findIndex((c) => c.id === activeChapterId);
+  const chapterPos = chapterIndex >= 0 ? chapterIndex + 1 : 0;
+  const totalChapters = workChapters.length;
 
   if (!activeChapterId) {
     return (
@@ -191,7 +220,7 @@ export function WritingEditor() {
           </div>
           <ThemeToggle />
         </div>
-        <div className="flex-1 flex items-center justify-center text-text-secondary">
+        <div className="flex-1 flex items-center justify-center text-text-secondary bg-[var(--color-editor-bg)]">
           <p>选择或创建一个章节开始写作</p>
         </div>
       </div>
@@ -239,25 +268,42 @@ export function WritingEditor() {
       </div>
 
       {/* Toolbar */}
-      <EditorToolbar editor={editor} />
+      <EditorToolbar editor={editor} onFind={() => setShowFindBar(true)} />
 
-      {/* Editor */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 relative">
+      {/* Find/Replace bar */}
+      <FindReplaceBar
+        editor={editor}
+        visible={showFindBar}
+        onClose={() => setShowFindBar(false)}
+      />
+
+      {/* Editor area with paper style */}
+      <div className="flex-1 overflow-y-auto bg-[var(--color-editor-bg)]">
         {isLoading && (
           <div className="absolute inset-0 bg-surface/60 z-10 flex items-center justify-center">
             <span className="text-sm text-text-secondary">加载中...</span>
           </div>
         )}
-        <div className="max-w-3xl mx-auto">
-          <EditorContent
-            editor={editor}
-            className="prose prose-stone max-w-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[400px] [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-text-secondary [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0"
-          />
+        {/* Paper */}
+        <div className="max-w-[210mm] mx-auto my-6">
+          <div className="bg-surface shadow-lg rounded-sm mx-4">
+            <div className="px-8 py-10 min-h-[297mm]">
+              <EditorContent
+                editor={editor}
+                className="prose prose-stone max-w-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:min-h-[600px] [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-text-secondary [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:h-0"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Status bar */}
-      <StatusBar wordCount={wordCount} isSaving={isSaving} />
+      <StatusBar
+        wordCount={wordCount}
+        isSaving={isSaving}
+        chapterIndex={chapterPos}
+        totalChapters={totalChapters}
+      />
     </div>
   );
 }
