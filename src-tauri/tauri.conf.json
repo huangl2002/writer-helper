@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicknisi/tauri-config-schema/main/schema.json",
   "productName": "AI Writer Helper",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "identifier": "com.aiwriter.helper",
   "build": {
     "frontendDist": "../dist",
