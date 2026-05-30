@@ -165,6 +165,30 @@ export function HomePage({ onNavigate }: Props) {
             >
               ✍ 继续写作
             </button>
+            {/* Recent chapters quick access */}
+            {(() => {
+              const workChapters = chapters.filter((c) => c.work_id === activeWorkId)
+                .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+                .slice(0, 3);
+              if (workChapters.length === 0) return null;
+              return (
+                <div className="flex gap-2 mt-2">
+                  {workChapters.map((ch) => (
+                    <button
+                      key={ch.id}
+                      onClick={() => {
+                        useAppStore.getState().setActiveChapter(ch.id);
+                        onNavigate("writing");
+                      }}
+                      className="flex-1 text-xs px-3 py-2 bg-surface-alt border border-border rounded-lg hover:bg-accent/5 text-left truncate"
+                    >
+                      <span className="text-text-secondary">最近：</span>
+                      <span className="text-text-primary">{ch.title}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 

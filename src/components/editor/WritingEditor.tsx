@@ -248,6 +248,57 @@ export function WritingEditor() {
     localStorage.removeItem(CRASH_BUFFER_KEY);
   };
 
+  // One-click formatting for web novels
+  const handleFormat = useCallback(() => {
+    if (!editor) return;
+    const { doc } = editor.state;
+    const newContent: any[] = [];
+    const fullWidthMap: Record<string, string> = {
+      ",": "，", ".": "。", "!": "！", "?": "？", ":": "：", ";": "；",
+      "(": "（", ")": "）", "<": "《", ">": "》", '"': '"', "'": "'",
+    };
+
+    doc.descendants((node, _pos) => {
+      if (node.type.name === "paragraph") {
+        let text = node.textContent;
+        // Convert half-width punctuation to full-width (skip code blocks)
+        if (node.textContent) {
+          for (const [half, full] of Object.entries(fullWidthMap)) {
+            text = text.split(half).join(full);
+          }
+        }
+        if (text.trim()) {
+          newContent.push({
+            type: "paragraph",
+            content: [{ type: "text", text: text }],
+          });
+          // Add blank paragraph between content paragraphs
+          newContent.push({ type: "paragraph" });
+        }
+      } else if (node.type.name === "heading") {
+        newContent.push(node.toJSON());
+        newContent.push({ type: "paragraph" });
+      } else if (node.type.name === "horizontalRule") {
+        newContent.push(node.toJSON());
+      } else if (node.type.name === "bulletList" || node.type.name === "orderedList") {
+        newContent.push(node.toJSON());
+        newContent.push({ type: "paragraph" });
+      } else if (node.type.name === "blockquote") {
+        newContent.push(node.toJSON());
+        newContent.push({ type: "paragraph" });
+      }
+    });
+
+    // Remove trailing empty paragraphs
+    while (newContent.length > 0 && newContent[newContent.length - 1].type === "paragraph" && (!newContent[newContent.length - 1].content || newContent[newContent.length - 1].content.length === 0)) {
+      newContent.pop();
+    }
+
+    if (newContent.length > 0) {
+      editor.commands.setContent({ type: "doc", content: newContent });
+    }
+  }, [editor]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -386,7 +437,7 @@ export function WritingEditor() {
       </div>
 
       {/* Toolbar */}
-      <EditorToolbar editor={editor} onFind={() => setShowFindBar(true)} />
+      <EditorToolbar editor={editor} onFind={() => setShowFindBar(true)} onFormat={handleFormat} />
 
       {/* Find/Replace bar */}
       <FindReplaceBar

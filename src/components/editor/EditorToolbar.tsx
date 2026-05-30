@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 interface Props {
   editor: Editor | null;
   onFind?: () => void;
+  onFormat?: () => void;
 }
 
 function btnBase(active: boolean) {
@@ -34,7 +35,7 @@ function ToolGroup({ label, children }: ToolGroupProps) {
   );
 }
 
-export function EditorToolbar({ editor, onFind }: Props) {
+export function EditorToolbar({ editor, onFind, onFormat }: Props) {
   const [linkUrl, setLinkUrl] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
 
@@ -220,6 +221,21 @@ export function EditorToolbar({ editor, onFind }: Props) {
         >
           ≡▯
         </button>
+      </ToolGroup>
+
+      <Divider />
+
+      {/* 工具 */}
+      <ToolGroup label="工具">
+        {onFormat && (
+          <button
+            onClick={onFormat}
+            className={btnBase(false)}
+            title="一键排版：段首缩进、段间空行、全角标点"
+          >
+            📐
+          </button>
+        )}
       </ToolGroup>
 
       <Divider />

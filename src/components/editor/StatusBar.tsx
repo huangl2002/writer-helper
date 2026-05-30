@@ -13,10 +13,14 @@ interface Props {
 export function StatusBar({ wordCount, isSaving, chapterIndex, totalChapters }: Props) {
   const todayStats = useAppStore((s) => s.todayStats);
   const activeWorkId = useAppStore((s) => s.activeWorkId);
+  const chapters = useAppStore((s) => s.chapters);
+  const activeChapterId = useAppStore((s) => s.activeChapterId);
+  const setActiveChapter = useAppStore((s) => s.setActiveChapter);
   const [now, setNow] = useState(new Date());
   const [sessionStart] = useState(() => Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [goal, setGoal] = useState<Goal | null>(null);
+  const [showChapterList, setShowChapterList] = useState(false);
 
   // Session timer
   useEffect(() => {
@@ -59,13 +63,40 @@ export function StatusBar({ wordCount, isSaving, chapterIndex, totalChapters }: 
   return (
     <div className="flex items-center px-4 py-1 border-t border-border bg-surface-alt text-xs text-text-secondary shrink-0">
       {/* Left section */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 relative">
         {totalChapters > 0 && (
-          <span>
-            第 {chapterIndex}/{totalChapters} 章
-          </span>
+          <button
+            onClick={() => setShowChapterList(!showChapterList)}
+            className="hover:bg-surface px-1.5 py-0.5 rounded text-xs cursor-pointer"
+          >
+            第 {chapterIndex}/{totalChapters} 章 ▾
+          </button>
         )}
         <span>本章 {wordCount.toLocaleString()} 字</span>
+
+        {/* Chapter quick-switch dropdown */}
+        {showChapterList && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowChapterList(false)} />
+            <div className="absolute bottom-full left-0 mb-1 z-50 w-64 max-h-64 overflow-y-auto bg-surface border border-border rounded-lg shadow-xl">
+              {chapters
+                .filter((c) => c.work_id === activeWorkId)
+                .map((ch, i) => (
+                  <button
+                    key={ch.id}
+                    onClick={() => { setActiveChapter(ch.id); setShowChapterList(false); }}
+                    className={`w-full text-left px-3 py-1.5 text-xs hover:bg-surface-alt flex items-center gap-2 ${
+                      ch.id === activeChapterId ? "bg-accent/10 text-accent font-medium" : "text-text-primary"
+                    }`}
+                  >
+                    <span className="text-text-secondary w-6 text-right shrink-0">{i + 1}</span>
+                    <span className="truncate flex-1">{ch.title}</span>
+                    <span className="text-text-secondary shrink-0">{ch.word_count}字</span>
+                  </button>
+                ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Center section */}
