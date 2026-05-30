@@ -10,11 +10,20 @@ import { useAppStore } from "../../stores/appStore";
 import { EditorToolbar } from "./EditorToolbar";
 import { StatusBar } from "./StatusBar";
 import { FindReplaceBar } from "./FindReplaceBar";
+import { SelectionToolbar } from "./SelectionToolbar";
 import { ThemeToggle } from "../theme/ThemeToggle";
 import { extractPlainText, countWords } from "../../lib/utils";
 import * as db from "../../lib/db";
 
 const SAVE_INTERVAL = 30000;
+const CRASH_BUFFER_KEY = "aiwriter_crash_buffer";
+
+interface CrashEntry {
+  chapterId: string;
+  title: string;
+  contentJson: string;
+  savedAt: number;
+}
 
 export function WritingEditor() {
   const activeChapterId = useAppStore((s) => s.activeChapterId);
@@ -32,6 +41,8 @@ export function WritingEditor() {
   const [wordCount, setWordCount] = useState(0);
   const [lastSavedWordCount, setLastSavedWordCount] = useState(0);
   const [showFindBar, setShowFindBar] = useState(false);
+  const [showCrashRecovery, setShowCrashRecovery] = useState(false);
+  const [crashData, setCrashData] = useState<CrashEntry | null>(null);
 
   // Refs to track current state for save without stale closures
   const savingChapterRef = useRef<string | null>(null);
@@ -93,6 +104,8 @@ export function WritingEditor() {
         setTodayStats(stats);
       }
       setLastSavedWordCount(data.wordCount);
+      // Clear crash buffer on successful save
+      try { localStorage.removeItem(CRASH_BUFFER_KEY); } catch {}
     } catch (e) {
       console.error("Save failed:", e);
     } finally {
@@ -158,6 +171,63 @@ export function WritingEditor() {
     const timer = setInterval(saveCurrentChapter, SAVE_INTERVAL);
     return () => clearInterval(timer);
   }, [saveCurrentChapter]);
+
+  // Crash buffer — save editor state to localStorage every 10s
+  useEffect(() => {
+    const crashSave = () => {
+      if (!activeChapterId || !editor) return;
+      try {
+        const entry: CrashEntry = {
+          chapterId: activeChapterId,
+          title: chapterTitle,
+          contentJson: JSON.stringify(editor.getJSON()),
+          savedAt: Date.now(),
+        };
+        localStorage.setItem(CRASH_BUFFER_KEY, JSON.stringify(entry));
+      } catch {
+        // localStorage may be full or unavailable
+      }
+    };
+    const timer = setInterval(crashSave, 10000);
+    // Clear crash buffer on clean unmount (app closing normally)
+    return () => { clearInterval(timer); };
+  }, [activeChapterId, chapterTitle, editor]);
+
+  // Check for crash recovery on mount
+  useEffect(() => {
+    if (!activeChapterId) return;
+    try {
+      const raw = localStorage.getItem(CRASH_BUFFER_KEY);
+      if (!raw) return;
+      const entry: CrashEntry = JSON.parse(raw);
+      // Only recover if the crash buffer is for the current chapter
+      if (entry.chapterId === activeChapterId && entry.contentJson) {
+        setCrashData(entry);
+        setShowCrashRecovery(true);
+      }
+    } catch {
+      // Corrupted crash buffer, ignore
+    }
+  }, [activeChapterId]);
+
+  const handleCrashRecovery = () => {
+    if (!crashData || !editor) return;
+    try {
+      editor.commands.setContent(JSON.parse(crashData.contentJson));
+      setChapterTitle(crashData.title);
+      setShowCrashRecovery(false);
+      setCrashData(null);
+      localStorage.removeItem(CRASH_BUFFER_KEY);
+    } catch {
+      setShowCrashRecovery(false);
+    }
+  };
+
+  const dismissCrashRecovery = () => {
+    setShowCrashRecovery(false);
+    setCrashData(null);
+    localStorage.removeItem(CRASH_BUFFER_KEY);
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -277,13 +347,38 @@ export function WritingEditor() {
         onClose={() => setShowFindBar(false)}
       />
 
+      {/* Crash recovery banner */}
+      {showCrashRecovery && crashData && (
+        <div className="flex items-center justify-between px-4 py-2 bg-amber-50 border-b border-amber-200 text-sm shrink-0">
+          <span className="text-amber-800">
+            ⚠ 检测到未保存的内容（{new Date(crashData.savedAt).toLocaleTimeString("zh-CN")} 的草稿），是否恢复？
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={handleCrashRecovery}
+              className="text-xs px-2 py-0.5 bg-amber-500 text-white rounded hover:bg-amber-600"
+            >
+              恢复
+            </button>
+            <button
+              onClick={dismissCrashRecovery}
+              className="text-xs px-2 py-0.5 border border-amber-300 rounded text-amber-700 hover:bg-amber-100"
+            >
+              放弃
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Editor area with paper style */}
-      <div className="flex-1 overflow-y-auto bg-[var(--color-editor-bg)]">
+      <div className="flex-1 overflow-y-auto bg-[var(--color-editor-bg)] relative">
         {isLoading && (
           <div className="absolute inset-0 bg-surface/60 z-10 flex items-center justify-center">
             <span className="text-sm text-text-secondary">加载中...</span>
           </div>
         )}
+        {/* Selection AI toolbar */}
+        <SelectionToolbar editor={editor} />
         {/* Paper */}
         <div className="max-w-[210mm] mx-auto my-6">
           <div className="bg-surface shadow-lg rounded-sm mx-4">

@@ -74,6 +74,10 @@ export function AiChat({ onNavigate }: Props) {
 
     setLoading(true);
     setError("");
+    // Add user message and empty assistant placeholder for streaming
+    const userMsg: Message = { role: "user", content: userMessage };
+    const assistantMsg: Message = { role: "assistant", content: "" };
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
     try {
       const res = await fetch(config.api_url, {
@@ -87,23 +91,67 @@ export function AiChat({ onNavigate }: Props) {
           messages: apiMessages,
           temperature: config.temperature,
           max_tokens: config.max_tokens,
-          stream: false,
+          stream: true,
         }),
       });
 
       if (!res.ok) {
         const errText = await res.text();
+        // Remove placeholder on error
+        setMessages((prev) => prev.slice(0, -2));
         throw new Error(`${res.status}: ${errText.slice(0, 200)}`);
       }
 
-      const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || "(无响应)";
+      // Read streaming response
+      const reader = res.body?.getReader();
+      if (!reader) {
+        setMessages((prev) => prev.slice(0, -2));
+        throw new Error("浏览器不支持流式读取");
+      }
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "user", content: userMessage },
-        { role: "assistant", content: reply },
-      ]);
+      const decoder = new TextDecoder();
+      let fullContent = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data:")) continue;
+          const dataStr = trimmed.slice(5).trim();
+          if (dataStr === "[DONE]") continue;
+
+          try {
+            const data = JSON.parse(dataStr);
+            const delta = data.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullContent += delta;
+              // Update the last assistant message in-place
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  ...updated[updated.length - 1],
+                  content: fullContent,
+                };
+                return updated;
+              });
+            }
+          } catch {
+            // Skip malformed JSON chunks
+          }
+        }
+      }
+
+      if (!fullContent) {
+        setMessages((prev) => prev.slice(0, -2));
+        setError("AI 未返回内容，请检查 API 配置");
+      }
     } catch (e: any) {
       setError(`请求失败: ${e.message}`);
     } finally {

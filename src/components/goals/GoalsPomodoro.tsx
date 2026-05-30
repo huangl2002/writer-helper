@@ -54,6 +54,18 @@ export function GoalsPomodoro() {
     }
   }, []);
 
+  const notify = (title: string, body: string) => {
+    if ("Notification" in window) {
+      if (Notification.permission === "granted") {
+        new Notification(title, { body, icon: undefined });
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((perm) => {
+          if (perm === "granted") new Notification(title, { body, icon: undefined });
+        });
+      }
+    }
+  };
+
   const startTimer = (type: "work" | "break", duration: number) => {
     stopTimer();
     setTimerState(type);
@@ -61,12 +73,14 @@ export function GoalsPomodoro() {
     intervalRef.current = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
-          // Timer complete
           stopTimer();
           if (type === "work") {
             setPomodorosDone((p) => p + 1);
-            setTimerState("idle");
+            notify("番茄钟完成！", "专注时间结束，休息一下吧~");
+            // Auto-start break after work
+            startTimer("break", POMODORO_BREAK);
           } else {
+            notify("休息结束", "可以开始新的番茄钟了~");
             setTimerState("idle");
           }
           return 0;

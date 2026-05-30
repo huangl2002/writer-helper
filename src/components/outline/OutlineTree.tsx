@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { useModal } from "../common/Modal";
 import type { Outline } from "../../types";
 import * as db from "../../lib/db";
 
@@ -37,6 +38,7 @@ export function OutlineTree() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const { modalPrompt, modalConfirm } = useModal();
 
   useEffect(() => {
     if (!activeWorkId) return;
@@ -51,7 +53,7 @@ export function OutlineTree() {
 
   const handleAdd = async (parentId: string | null) => {
     if (!activeWorkId) return;
-    const title = prompt("大纲节点名称：");
+    const title = await modalPrompt("大纲节点名称：");
     if (!title?.trim()) return;
     await db.createOutline(activeWorkId, parentId, title.trim(), "plot");
     await refresh();
@@ -80,8 +82,34 @@ export function OutlineTree() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定删除此大纲节点？子节点将上移。")) return;
+    const ok = await modalConfirm("确定删除此大纲节点？子节点将上移。");
+    if (!ok) return;
     await db.deleteOutline(id);
+    await refresh();
+  };
+
+  const handleMoveUp = async (current: Outline) => {
+    // Find siblings with the same parent
+    const siblings = outlines
+      .filter((o) => (o.parent_id ?? null) === (current.parent_id ?? null))
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((o) => o.id === current.id);
+    if (idx <= 0) return;
+    const newOrder = [...siblings];
+    [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
+    await db.reorderOutlines(newOrder.map((o) => o.id));
+    await refresh();
+  };
+
+  const handleMoveDown = async (current: Outline) => {
+    const siblings = outlines
+      .filter((o) => (o.parent_id ?? null) === (current.parent_id ?? null))
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((o) => o.id === current.id);
+    if (idx < 0 || idx >= siblings.length - 1) return;
+    const newOrder = [...siblings];
+    [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+    await db.reorderOutlines(newOrder.map((o) => o.id));
     await refresh();
   };
 
@@ -250,6 +278,20 @@ export function OutlineTree() {
 
           {/* Actions */}
           <div className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-0.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleMoveUp(node); }}
+              className="text-xs px-1 hover:text-accent"
+              title="上移"
+            >
+              ↑
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleMoveDown(node); }}
+              className="text-xs px-1 hover:text-accent"
+              title="下移"
+            >
+              ↓
+            </button>
             <button
               onClick={(e) => { e.stopPropagation(); handleAdd(node.id); }}
               className="text-xs px-1 hover:text-accent"

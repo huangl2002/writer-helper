@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { CharacterCard } from "./CharacterCard";
 import { CharacterForm } from "./CharacterForm";
+import { useModal } from "../common/Modal";
 import type { Character, CharacterRelation } from "../../types";
 import * as db from "../../lib/db";
 
@@ -11,6 +12,7 @@ export function CharacterList() {
   const [relations, setRelations] = useState<CharacterRelation[]>([]);
   const [editingChar, setEditingChar] = useState<Character | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const { modalConfirm } = useModal();
 
   useEffect(() => {
     if (!activeWorkId) return;
@@ -29,7 +31,8 @@ export function CharacterList() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定删除此角色？相关关系也将删除。")) return;
+    const ok = await modalConfirm("确定删除此角色？相关关系也将删除。");
+    if (!ok) return;
     await db.deleteCharacter(id);
     await refresh();
   };

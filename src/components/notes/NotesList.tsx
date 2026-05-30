@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAppStore } from "../../stores/appStore";
+import { useModal } from "../common/Modal";
 import type { Note } from "../../types";
 import * as db from "../../lib/db";
 
@@ -19,6 +20,7 @@ export function NotesList() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNote, setEditNote] = useState<Partial<Note>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const { modalPrompt } = useModal();
 
   useEffect(() => {
     if (!activeWorkId) return;
@@ -36,7 +38,7 @@ export function NotesList() {
   };
 
   const handleAdd = async () => {
-    const title = prompt("便签标题：");
+    const title = await modalPrompt("便签标题：");
     if (!title?.trim()) return;
     await db.createNote(activeWorkId, title.trim());
     await doRefresh(searchQuery);

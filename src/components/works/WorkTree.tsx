@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { ContextMenu, type ContextMenuItem } from "../common/ContextMenu";
+import { useModal } from "../common/Modal";
 import type { Chapter, Volume, Work } from "../../types";
 import * as db from "../../lib/db";
 
@@ -23,6 +24,8 @@ export function WorkTree() {
   const [ctxMenu, setCtxMenu] = useState<{
     x: number; y: number; items: ContextMenuItem[];
   } | null>(null);
+
+  const { modalPrompt, modalConfirm } = useModal();
 
   // Load works on mount
   useEffect(() => {
@@ -58,7 +61,7 @@ export function WorkTree() {
 
   // ── Work CRUD ──
   const handleAddWork = async () => {
-    const title = prompt("作品名称：");
+    const title = await modalPrompt("作品名称：");
     if (!title?.trim()) return;
     try {
       const w = await db.createWork(title.trim());
@@ -66,12 +69,12 @@ export function WorkTree() {
       setActiveWork(w.id);
     } catch (e) {
       console.error("Failed to create work:", e);
-      alert("创建作品失败，请重试");
     }
   };
 
   const handleDeleteWork = async (w: Work) => {
-    if (!confirm(`确定删除作品「${w.title}」？所有章节数据将被删除。`)) return;
+    const ok = await modalConfirm(`确定删除作品「${w.title}」？所有章节数据将被删除。`);
+    if (!ok) return;
     await db.deleteWork(w.id);
     if (activeWorkId === w.id) setActiveWork(null);
     await refreshWorks();
@@ -80,14 +83,15 @@ export function WorkTree() {
   // ── Volume CRUD ──
   const handleAddVolume = async () => {
     if (!activeWorkId) return;
-    const title = prompt("卷名：");
+    const title = await modalPrompt("卷名：");
     if (!title?.trim()) return;
     await db.createVolume(activeWorkId, title.trim());
     await refresh();
   };
 
   const handleDeleteVolume = async (v: Volume) => {
-    if (!confirm("删除此卷？卷内章节将移为未分类。")) return;
+    const ok = await modalConfirm("删除此卷？卷内章节将移为未分类。");
+    if (!ok) return;
     await db.deleteVolume(v.id);
     await refresh();
   };
@@ -95,14 +99,15 @@ export function WorkTree() {
   // ── Chapter CRUD ──
   const handleAddChapter = async (volumeId: string | null) => {
     if (!activeWorkId) return;
-    const title = prompt("章节标题：");
+    const title = await modalPrompt("章节标题：");
     if (!title?.trim()) return;
     await db.createChapter(activeWorkId, volumeId, title.trim());
     await refresh();
   };
 
   const handleDeleteChapter = async (ch: Chapter) => {
-    if (!confirm("确定删除此章节？")) return;
+    const ok = await modalConfirm("确定删除此章节？");
+    if (!ok) return;
     await db.deleteChapter(ch.id);
     if (activeChapterId === ch.id) setActiveChapter(null);
     await refresh();
@@ -115,6 +120,50 @@ export function WorkTree() {
 
   const handleMoveChapter = async (ch: Chapter, volumeId: string | null) => {
     await db.moveChapter(ch.id, volumeId);
+    await refresh();
+  };
+
+  const handleMoveChapterUp = async (ch: Chapter) => {
+    const siblings = chapters
+      .filter((c) => (c.volume_id ?? null) === (ch.volume_id ?? null))
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((c) => c.id === ch.id);
+    if (idx <= 0) return;
+    const newOrder = [...siblings];
+    [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
+    await db.reorderChapters(newOrder.map((c) => c.id));
+    await refresh();
+  };
+
+  const handleMoveChapterDown = async (ch: Chapter) => {
+    const siblings = chapters
+      .filter((c) => (c.volume_id ?? null) === (ch.volume_id ?? null))
+      .sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((c) => c.id === ch.id);
+    if (idx < 0 || idx >= siblings.length - 1) return;
+    const newOrder = [...siblings];
+    [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+    await db.reorderChapters(newOrder.map((c) => c.id));
+    await refresh();
+  };
+
+  const handleMoveVolumeUp = async (vol: Volume) => {
+    const siblings = [...volumes].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((v) => v.id === vol.id);
+    if (idx <= 0) return;
+    const newOrder = [...siblings];
+    [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
+    await db.reorderVolumes(newOrder.map((v) => v.id));
+    await refresh();
+  };
+
+  const handleMoveVolumeDown = async (vol: Volume) => {
+    const siblings = [...volumes].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = siblings.findIndex((v) => v.id === vol.id);
+    if (idx < 0 || idx >= siblings.length - 1) return;
+    const newOrder = [...siblings];
+    [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
+    await db.reorderVolumes(newOrder.map((v) => v.id));
     await refresh();
   };
 
@@ -241,6 +290,16 @@ export function WorkTree() {
       )}
       {/* Action buttons on hover */}
       <ActionBtn
+        onClick={() => handleMoveChapterUp(ch)}
+        title="上移"
+        label="↑"
+      />
+      <ActionBtn
+        onClick={() => handleMoveChapterDown(ch)}
+        title="下移"
+        label="↓"
+      />
+      <ActionBtn
         onClick={() => handleAddChapter(ch.volume_id)}
         title="+章"
         label="+"
@@ -289,6 +348,8 @@ export function WorkTree() {
           ) : (
             <span className="truncate flex-1">📁 {vol.title}</span>
           )}
+          <ActionBtn onClick={() => handleMoveVolumeUp(vol)} title="上移" label="↑" />
+          <ActionBtn onClick={() => handleMoveVolumeDown(vol)} title="下移" label="↓" />
           <ActionBtn onClick={() => handleAddChapter(vol.id)} title="+章" label="+" />
           <ActionBtn
             onClick={() => startRename(vol.id, vol.title)}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useModal } from "../common/Modal";
 import type { AiConfig, AiConfigInput } from "../../types";
 import * as db from "../../lib/db";
 
@@ -24,6 +25,7 @@ export function AiSettings() {
     max_tokens: 4096,
   });
   const [msg, setMsg] = useState("");
+  const { modalConfirm } = useModal();
 
   useEffect(() => {
     db.listAiConfigs().then(setConfigs).catch(console.error);
@@ -71,7 +73,8 @@ export function AiSettings() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("删除此配置？")) return;
+    const ok = await modalConfirm("删除此配置？");
+    if (!ok) return;
     await db.deleteAiConfig(id);
     await refresh();
   };

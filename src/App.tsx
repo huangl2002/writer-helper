@@ -3,6 +3,7 @@ import { useAppStore } from "./stores/appStore";
 import { MainLayout } from "./components/layout/MainLayout";
 import { ToastContainer } from "./components/common/Toast";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ModalProvider } from "./components/common/Modal";
 import * as db from "./lib/db";
 
 function App() {
@@ -20,10 +21,12 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div data-theme={theme} className="h-screen w-screen overflow-hidden">
-        <MainLayout />
-        <ToastContainer />
-      </div>
+      <ModalProvider>
+        <div data-theme={theme} className="h-screen w-screen overflow-hidden">
+          <MainLayout />
+          <ToastContainer />
+        </div>
+      </ModalProvider>
     </ErrorBoundary>
   );
 }
